@@ -145,7 +145,10 @@ class GeneralCommandSet2Test(unittest.TestCase):
                 np.array([CHANNEL_ONLINE, CHANNEL_OFFLINE, CHANNEL_ONLINE]),
                 controlMode))
 
-        
+
+    def testGcsCommand(self):
+        self.assertEqual(self._gcs.gcsCommand('VER?'),
+                         self._gcs.getVersion())
 
 if __name__ == "__main__":
     unittest.main()

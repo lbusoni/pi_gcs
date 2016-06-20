@@ -1,6 +1,6 @@
 from ctypes.util import find_library
 import ctypes
-from ctypes import c_int
+from ctypes import c_int, c_char_p
 import numpy as np
 
 
@@ -178,3 +178,22 @@ class GeneralCommandSet2(object):
         self._convertErrorToException(
             self._lib.PI_qECO(self._id, cMsg, cRet))
         return cRet.value
+
+
+    def gcsCommand(self, commandAsString):
+        self._lib.PI_GcsCommandset.argtypes= [c_int, c_char_p]
+        self._lib.PI_GcsGetAnswer.argtypes= [c_int, c_char_p, c_int]
+        self._convertErrorToException(
+            self._lib.PI_GcsCommandset(self._id, commandAsString))
+        retSize= c_int(1)
+        res= ''
+        while retSize.value != 0:
+            self._convertErrorToException(
+                self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
+            buf= ctypes.create_string_buffer(0, retSize.value)
+            self._convertErrorToException(
+                self._lib.PI_GcsGetAnswer(self._id, buf, retSize.value))
+            res+= buf.value
+        return res
+
+
