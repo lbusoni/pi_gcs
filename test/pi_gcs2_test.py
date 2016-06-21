@@ -168,6 +168,10 @@ class GeneralCommandSet2Test(unittest.TestCase):
         self.assertTrue('libpi_pi_gcs2'in self._gcs.getVersion())
 
 
+    def testGcsCommand(self):
+        self.assertEqual(self._gcs.gcsCommand('VER?'),
+                         self._gcs.getVersion())
+
 
 if __name__ == "__main__":
     unittest.main()
