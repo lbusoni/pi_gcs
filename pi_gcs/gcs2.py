@@ -8,8 +8,6 @@ __version__= "$Id: $"
 
 CHANNEL_OFFLINE= 0
 CHANNEL_ONLINE= 1
-TRUE= 1
-FALSE= 0
 
 
 class PIException(Exception):
@@ -59,13 +57,10 @@ class Channels(CIntArray):
         CIntArray.__init__(self, channels)
 
 
-class Axes(CCharArray):
-    def __init__(self, axes):
-        CCharArray.__init__(self, axes)
-
-
 class GeneralCommandSet2(object):
 
+    GCS_TRUE= 1
+    GCS_FALSE= 0
 
     def __init__(self):
         self._hostname= None
@@ -97,7 +92,7 @@ class GeneralCommandSet2(object):
         return "%s (%d)" % (s.value, errorCode)
 
 
-    def _convertErrorToException(self, returnValue, expectedReturn=TRUE):
+    def _convertErrorToException(self, returnValue, expectedReturn=GCS_TRUE):
         if returnValue != expectedReturn:
             errorId= self._lib.PI_GetError(self._id)
             if errorId != 0:
@@ -140,9 +135,9 @@ class GeneralCommandSet2(object):
 
     def getVersion(self):
         bufSize= 256
-        s=ctypes.create_string_buffer('\000' * bufSize)
+        s=ctypes.create_string_buffer('\000', bufSize)
         self._convertErrorToException(
-            self._lib.PI_qVER(self._id, ctypes.byref(s), bufSize))
+            self._lib.PI_qVER(self._id, s, bufSize))
         return s.value
 
 
@@ -150,12 +145,45 @@ class GeneralCommandSet2(object):
         pass
 
 
-    def getServoControlMode(self, axes):
-        svo= CBoolArray([False]* len(axes))
-        self._lib.PI_qSVO.argtypes= [c_int, Axes, CBoolArray]
+    def getAxesIdentifiers(self):
+        bufSize= 256
+        s=ctypes.create_string_buffer('\000', bufSize)
         self._convertErrorToException(
-            self._lib.PI_qSVO(self._id, Axes(axes), svo))
-        return svo.toNumpyArray()
+            self._lib.PI_qSAI(self._id, s, bufSize))
+        return s.value.split()
+
+
+    def getNumberOfInputSignalChannels(self):
+        nChannels= c_int()
+        self._convertErrorToException(
+            self._lib.PI_qTSC(self._id, ctypes.byref(nChannels)))
+        return nChannels.value
+
+
+    def getNumberOfOutputSignalChannels(self):
+        nChannels= c_int()
+        self._convertErrorToException(
+            self._lib.PI_qTPC(self._id, ctypes.byref(nChannels)))
+        return nChannels.value
+
+
+    def getServoControlMode(self, axesString):
+        nCh= len(axesString.split())
+        svo= CIntArray([False]* nCh)
+        self._lib.PI_qSVO.argtypes= [c_int, c_char_p, CIntArray]
+        self._convertErrorToException(
+            self._lib.PI_qSVO(self._id, axesString, svo))
+        return svo.toNumpyArray().astype('bool')
+
+
+    def setServoControlMode(self, axesString, controlMode):
+        nCh= len(axesString.split())
+        assert nCh == len(controlMode)
+
+        svo= CIntArray(np.array(controlMode).astype('int'))
+        self._lib.PI_SVO.argtypes= [c_int, c_char_p, CIntArray]
+        self._convertErrorToException(
+            self._lib.PI_SVO(self._id, axesString, svo))
 
 
 
@@ -204,15 +232,17 @@ class GeneralCommandSet2(object):
         self._lib.PI_GcsGetAnswer.argtypes= [c_int, c_char_p, c_int]
         self._convertErrorToException(
             self._lib.PI_GcsCommandset(self._id, commandAsString))
-        retSize= c_int(1)
+        retSize= c_int()
         res= ''
+        self._convertErrorToException(
+            self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
         while retSize.value != 0:
-            self._convertErrorToException(
-                self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
-            buf= ctypes.create_string_buffer(0, retSize.value)
+            buf= ctypes.create_string_buffer('\000', retSize.value)
             self._convertErrorToException(
                 self._lib.PI_GcsGetAnswer(self._id, buf, retSize.value))
             res+= buf.value
+            self._convertErrorToException(
+                self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
         return res
 
 
