@@ -125,20 +125,13 @@ class GeneralCommandSet2Test(unittest.TestCase):
                          self._gcs.echo("pippo"))
 
 
-    #@unittest.skip("missing real hardware")
-    def testRaisesIfItCantConnect(self):
+    def _testRaisesIfItCantConnect(self):
         fake= GeneralCommandSet2()
         self.assertRaises(ConnectionError,
                           fake.connectTCPIP, 'foo.bar.com')
 
 
-    #@unittest.skip("missing real hardware")
-    def testAcceptMultipleConnectTCPIPInvocation(self):
-        self._acceptMultipleConnectTCPIPInvocation()
-
-
-    #@unittest.skip("missing real hardware")
-    def testControlMode(self):
+    def _testControlMode(self):
         channels= np.array([1, 2, 3])
         self._gcs.setControlMode(
             channels,
@@ -164,13 +157,51 @@ class GeneralCommandSet2Test(unittest.TestCase):
                 controlMode))
 
 
-    def testVersion(self):
-        self.assertTrue('libpi_pi_gcs2'in self._gcs.getVersion())
+    def _testServoControlMode(self):
+        self._gcs.setServoControlMode("A B C", [False, False, False])
+        self.assertTrue(
+            np.allclose(
+                np.array([False, False, False]),
+                self._gcs.getServoControlMode("A B C")))
+
+        self._gcs.setServoControlMode("A", [True])
+        self.assertTrue(
+            np.allclose(
+                np.array([True]),
+                self._gcs.getServoControlMode("A")))
+
+        self._gcs.setServoControlMode("A B C", [True, True, False])
+        self.assertTrue(
+            np.allclose(
+                np.array([True, True, False]),
+                self._gcs.getServoControlMode("A B C")))
 
 
-    def testGcsCommand(self):
+    def _testVersion(self):
+        self.assertTrue('libpi_pi_gcs2' in self._gcs.getVersion())
+
+
+    def _testGcsCommand(self):
         self.assertEqual(self._gcs.gcsCommand('VER?'),
                          self._gcs.getVersion())
+
+
+    def _queryConfiguration(self):
+        self.assertItemsEqual(['A', 'B', 'C'],
+                              self._gcs.getAxesIdentifiers())
+        self.assertEqual(3, self._gcs.getNumberOfInputSignalChannels())
+        self.assertEqual(3, self._gcs.getNumberOfOutputSignalChannels())
+
+
+
+    def testIntegration(self):
+        self._acceptMultipleConnectTCPIPInvocation()
+        self._testRaisesIfItCantConnect()
+        self._testVersion()
+        self._queryConfiguration()
+        self._testGcsCommand()
+        self._testControlMode()
+        self._testServoControlMode()
 
 
 if __name__ == "__main__":
