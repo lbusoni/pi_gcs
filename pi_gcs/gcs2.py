@@ -1,6 +1,6 @@
 from ctypes.util import find_library
 import ctypes
-from ctypes import c_int
+from ctypes import c_int, c_bool, c_char
 import numpy as np
 
 
@@ -25,13 +25,17 @@ class CTypeArray():
     def __init__(self, ctype, array):
         assert isinstance(array, (np.ndarray, list, tuple))
         self._ctype= ctype
-        self._array= array
+        self._ret= (self._ctype * len(array))()
+        for i in range(len(array)):
+            self._ret[i]= array[i]
+
 
     def from_param(self):
-        ret= (self._ctype * len(self._array))()
-        for i in range(len(self._array)):
-            ret[i]= self._array[i]
-        return ret
+        return self._ret
+
+
+    def toNumpyArray(self):
+        return np.array([x for x in self._ret])
 
 
 class CIntArray(CTypeArray):
@@ -39,15 +43,25 @@ class CIntArray(CTypeArray):
         CTypeArray.__init__(self, c_int, array)
 
 
+class CBoolArray(CTypeArray):
+    def __init__(self, array):
+        CTypeArray.__init__(self, c_bool, array)
+
+
+class CCharArray(CTypeArray):
+    def __init__(self, array):
+        CTypeArray.__init__(self, c_char, array)
+
+
+
 class Channels(CIntArray):
     def __init__(self, channels):
         CIntArray.__init__(self, channels)
 
 
-
-
-class Axis():
-    pass
+class Axes(CCharArray):
+    def __init__(self, axes):
+        CCharArray.__init__(self, axes)
 
 
 class GeneralCommandSet2(object):
@@ -65,7 +79,7 @@ class GeneralCommandSet2(object):
 
 
     def _importLibrary(self):
-        piLibName= 'pi_pi_gcs2-3.5.1'
+        piLibName= 'pi_pi_gcs2'
         pilib= find_library(piLibName)
         if pilib is None:
             raise PIException("Library %s not found" % piLibName)
@@ -87,11 +101,15 @@ class GeneralCommandSet2(object):
         if returnValue != expectedReturn:
             errorId= self._lib.PI_GetError(self._id)
             if errorId != 0:
-                raise PIException("%s" % self._errAsString(errorId))
+                errMsg= ""
+                while errorId != 0:
+                    errMsg+= self._errAsString(errorId)+ " "
+                    errorId= self._lib.PI_GetError(self._id)
+                raise PIException("%s" % errMsg)
 
 
     def _convertCArrayToNumpyArray(self, cArray):
-        return np.array([x for x in cArray])
+        return np.array([x for x in cArray.array()])
 
 
     def _toBool(self, value):
@@ -132,33 +150,13 @@ class GeneralCommandSet2(object):
         pass
 
 
-    def getServoControlMode(self):
-        cBoolArray= ctypes.c_bool * 3
-        svo=cBoolArray(False, False, False)
+    def getServoControlMode(self, axes):
+        svo= CBoolArray([False]* len(axes))
+        self._lib.PI_qSVO.argtypes= [c_int, Axes, CBoolArray]
         self._convertErrorToException(
-            self._lib.PI_qSVO(self._id, self._axes, svo))
-        return self._convertCArrayToNumpyArray(svo)
+            self._lib.PI_qSVO(self._id, Axes(axes), svo))
+        return svo.toNumpyArray()
 
-
-
-    def enableControlMode(self, channels):
-        enable= CIntArray([CHANNEL_ONLINE]* len(channels))
-        self._lib.PI_ONL.argtypes= [c_int, Channels, CIntArray, c_int]
-        self._convertErrorToException(
-            self._lib.PI_ONL(self._id,
-                             Channels(channels),
-                             enable,
-                             len(channels)))
-
-
-    def disableControlMode(self, channels):
-        disable= CIntArray([CHANNEL_OFFLINE]* len(channels))
-        self._lib.PI_ONL.argtypes= [c_int, Channels, CIntArray, c_int]
-        self._convertErrorToException(
-            self._lib.PI_ONL(self._id,
-                             Channels(channels),
-                             disable,
-                             len(channels)))
 
 
     def getControlMode(self, channels):
@@ -169,7 +167,28 @@ class GeneralCommandSet2(object):
                               Channels(channels),
                               retArray,
                               len(channels)))
-        return self._convertCArrayToNumpyArray(retArray)
+        return retArray.toNumpyArray()
+
+
+    def setControlMode(self, channels, controlMode):
+        assert len(channels) == len(controlMode)
+        ctrl= CIntArray(controlMode)
+        self._lib.PI_ONL.argtypes= [c_int, Channels, CIntArray, c_int]
+        self._convertErrorToException(
+            self._lib.PI_ONL(self._id,
+                             Channels(channels),
+                             ctrl,
+                             len(channels)))
+
+
+    def enableControlMode(self, channels):
+        enable= [CHANNEL_ONLINE]* len(channels)
+        self.setControlMode(channels, enable)
+
+
+    def disableControlMode(self, channels):
+        disable= [CHANNEL_OFFLINE]* len(channels)
+        self.setControlMode(channels, disable)
 
 
     def echo(self, message):
