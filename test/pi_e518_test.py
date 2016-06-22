@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import unittest
+from pi_gcs.pi_e518 import PhysikInstrumenteE518
 
 __version__ = "$Id:$"
 
 
-class PIE518Test(unittest.TestCase):
+class PhysikInstrumenteE518Test(unittest.TestCase):
 
 
     def setUp(self):
@@ -20,6 +21,11 @@ class PIE518Test(unittest.TestCase):
         self.pi518.connectTCPIP()
         self.assertEqual('foo',
                          self.pi518.foo())
+
+
+
+
+
 
 
 if __name__ == "__main__":

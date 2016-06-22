@@ -1,6 +1,6 @@
 from ctypes.util import find_library
 import ctypes
-from ctypes import c_int, c_bool, c_char, c_char_p
+from ctypes import c_int, c_bool, c_char, c_char_p, c_double
 import numpy as np
 
 
@@ -39,6 +39,11 @@ class CTypeArray():
 class CIntArray(CTypeArray):
     def __init__(self, array):
         CTypeArray.__init__(self, c_int, array)
+
+
+class CDoubleArray(CTypeArray):
+    def __init__(self, array):
+        CTypeArray.__init__(self, c_double, array)
 
 
 class CBoolArray(CTypeArray):
@@ -112,6 +117,47 @@ class GeneralCommandSet2(object):
         return True if value == 1 else False
 
 
+    def _getterChannels(self, channels, gcsFunction, valueArrayClass):
+        chArray= np.atleast_1d(channels)
+        value= valueArrayClass([0] * len(chArray))
+        gcsFunction.argtypes= [c_int, CIntArray, valueArrayClass, c_int]
+        self._convertErrorToException(
+            gcsFunction(self._id,
+                        CIntArray(chArray),
+                        value,
+                        len(chArray)))
+        return value.toNumpyArray()
+
+
+    def _setterChannels(self, channels, value, gcsFunction, valueArrayClass):
+        valueArray= np.atleast_1d(value)
+        assert len(channels) == len(valueArray)
+        gcsFunction.argtypes= [c_int, CIntArray, valueArrayClass, c_int]
+        self._convertErrorToException(
+            gcsFunction(self._id,
+                        CIntArray(channels),
+                        valueArrayClass(valueArray),
+                        len(channels)))
+
+
+    def _getterAxes(self, axesString, gcsFunction, valueArrayClass):
+        nCh= len(axesString.split())
+        value= valueArrayClass([0]* nCh)
+        gcsFunction.argtypes= [c_int, c_char_p, valueArrayClass]
+        self._convertErrorToException(
+            gcsFunction(self._id, axesString, value))
+        return value.toNumpyArray()
+
+
+    def _setterAxes(self, axesString, value, gcsFunction, valueArrayClass):
+        nCh= len(axesString.split())
+        valueArray= np.atleast_1d(value)
+        assert nCh == len(valueArray)
+        gcsFunction.argtypes= [c_int, c_char_p, valueArrayClass]
+        self._convertErrorToException(
+            gcsFunction(self._id, axesString, valueArrayClass(valueArray)))
+
+
     def _isConnected(self):
         return self._toBool(self._lib.PI_IsConnected(self._id))
 
@@ -133,16 +179,31 @@ class GeneralCommandSet2(object):
             pass
 
 
+    def gcsCommand(self, commandAsString):
+        self._lib.PI_GcsCommandset.argtypes= [c_int, c_char_p]
+        self._lib.PI_GcsGetAnswer.argtypes= [c_int, c_char_p, c_int]
+        self._convertErrorToException(
+            self._lib.PI_GcsCommandset(self._id, commandAsString))
+        retSize= c_int()
+        res= ''
+        self._convertErrorToException(
+            self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
+        while retSize.value != 0:
+            buf= ctypes.create_string_buffer('\000', retSize.value)
+            self._convertErrorToException(
+                self._lib.PI_GcsGetAnswer(self._id, buf, retSize.value))
+            res+= buf.value
+            self._convertErrorToException(
+                self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
+        return res
+
+
     def getVersion(self):
         bufSize= 256
         s=ctypes.create_string_buffer('\000', bufSize)
         self._convertErrorToException(
             self._lib.PI_qVER(self._id, s, bufSize))
         return s.value
-
-
-    def getPosition(self):
-        pass
 
 
     def getAxesIdentifiers(self):
@@ -177,36 +238,20 @@ class GeneralCommandSet2(object):
 
 
     def setServoControlMode(self, axesString, controlMode):
-        nCh= len(axesString.split())
-        assert nCh == len(controlMode)
-
-        svo= CIntArray(np.array(controlMode).astype('int'))
-        self._lib.PI_SVO.argtypes= [c_int, c_char_p, CIntArray]
-        self._convertErrorToException(
-            self._lib.PI_SVO(self._id, axesString, svo))
-
+        self._setterAxes(
+            axesString,
+            np.atleast_1d(controlMode).astype('int'),
+            self._lib.PI_SVO,
+            CIntArray)
 
 
     def getControlMode(self, channels):
-        retArray= CIntArray([CHANNEL_OFFLINE]* len(channels))
-        self._lib.PI_qONL.argtypes= [c_int, Channels, CIntArray, c_int]
-        self._convertErrorToException(
-            self._lib.PI_qONL(self._id,
-                              Channels(channels),
-                              retArray,
-                              len(channels)))
-        return retArray.toNumpyArray()
+        return self._getterChannels(channels, self._lib.PI_qONL, CIntArray)
 
 
     def setControlMode(self, channels, controlMode):
-        assert len(channels) == len(controlMode)
-        ctrl= CIntArray(controlMode)
-        self._lib.PI_ONL.argtypes= [c_int, Channels, CIntArray, c_int]
-        self._convertErrorToException(
-            self._lib.PI_ONL(self._id,
-                             Channels(channels),
-                             ctrl,
-                             len(channels)))
+        self._setterChannels(
+            channels, controlMode, self._lib.PI_ONL, CIntArray)
 
 
     def enableControlMode(self, channels):
@@ -227,22 +272,58 @@ class GeneralCommandSet2(object):
         return cRet.value
 
 
-    def gcsCommand(self, commandAsString):
-        self._lib.PI_GcsCommandset.argtypes= [c_int, c_char_p]
-        self._lib.PI_GcsGetAnswer.argtypes= [c_int, c_char_p, c_int]
-        self._convertErrorToException(
-            self._lib.PI_GcsCommandset(self._id, commandAsString))
-        retSize= c_int()
-        res= ''
-        self._convertErrorToException(
-            self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
-        while retSize.value != 0:
-            buf= ctypes.create_string_buffer('\000', retSize.value)
-            self._convertErrorToException(
-                self._lib.PI_GcsGetAnswer(self._id, buf, retSize.value))
-            res+= buf.value
-            self._convertErrorToException(
-                self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
-        return res
+    def getLowerVoltageLimit(self, channels):
+        return self._getterChannels(channels, self._lib.PI_qVMI, CDoubleArray)
 
+
+    def setLowerVoltageLimit(self, channels, lowerVoltage):
+        self._setterChannels(
+            channels, lowerVoltage, self._lib.PI_VMI, CDoubleArray)
+
+
+    def getUpperVoltageLimit(self, channels):
+        return self._getterChannels(channels, self._lib.PI_qVMA, CDoubleArray)
+
+
+    def setUpperVoltageLimit(self, channels, upperVoltage):
+        self._setterChannels(
+            channels, upperVoltage, self._lib.PI_VMA, CDoubleArray)
+
+
+    def getPosition(self, axesString):
+        return self._getterAxes(axesString, self._lib.PI_qPOS, CDoubleArray)
+
+
+    def getVoltages(self, channels):
+        return self._getterChannels(channels, self._lib.PI_qVOL, CDoubleArray)
+
+
+    def getOpenLoopAxisValue(self, axesString):
+        return self._getterAxes(
+            axesString, self._lib.PI_qSVA, CDoubleArray)
+
+
+    def setOpenLoopAxisValue(self, axesString, amplitudeInVolt):
+        self._setterAxes(
+            axesString, amplitudeInVolt, self._lib.PI_SVA, CDoubleArray)
+
+
+    def setRelativeOpenLoopAxisValue(self, axesString, offsetInVolt):
+        self._setterAxes(
+            axesString, offsetInVolt, self._lib.PI_SVR, CDoubleArray)
+
+
+    def getTargetPosition(self, axesString):
+        return self._getterAxes(
+            axesString, self._lib.PI_qMOV, CDoubleArray)
+
+
+    def setTargetPosition(self, axesString, position):
+        self._setterAxes(
+            axesString, position, self._lib.PI_MOV, CDoubleArray)
+
+
+    def setTargetRelativeToCurrentPosition(self, axesString, offset):
+        self._setterAxes(
+            axesString, offset, self._lib.PI_MVR, CDoubleArray)
 

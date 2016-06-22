@@ -2,13 +2,32 @@
 
 import unittest
 import numpy as np
+import time
 from pi_gcs.gcs2 import GeneralCommandSet2, ConnectionError, CHANNEL_ONLINE,\
-    CHANNEL_OFFLINE
+    CHANNEL_OFFLINE, PIException
 import ctypes
 from ctypes.util import find_library
 
 
 __version__ = "$Id:$"
+
+
+class Barrier:
+
+    @classmethod
+    def waitUntil(cls, predicate, timeoutSec, period=0.5, timeModule=time):
+        mustEnd = timeModule.time() + timeoutSec
+
+        done= False
+        while not done:
+            ok= predicate()
+            if ok:
+                done= True
+            elif timeModule.time() >= mustEnd:
+                raise Exception("Timeout occurred after %.1f s" %
+                                timeoutSec)
+            else:
+                timeModule.sleep(period)
 
 
 class CTypesTest(unittest.TestCase):
@@ -102,7 +121,7 @@ class CTypesTest(unittest.TestCase):
         self.assertEqual(3, self.libm.floor(3.3))
 
 
-class GeneralCommandSet2Test(unittest.TestCase):
+class GeneralCommandSet2TestWithE517(unittest.TestCase):
 
     def setUp(self):
         self._hostname= '193.206.155.117'
@@ -131,7 +150,7 @@ class GeneralCommandSet2Test(unittest.TestCase):
                           fake.connectTCPIP, 'foo.bar.com')
 
 
-    def _testControlMode(self):
+    def _enableControlMode(self):
         channels= np.array([1, 2, 3])
         self._gcs.setControlMode(
             channels,
@@ -156,15 +175,18 @@ class GeneralCommandSet2Test(unittest.TestCase):
                 np.array([CHANNEL_ONLINE, CHANNEL_OFFLINE, CHANNEL_ONLINE]),
                 controlMode))
 
+        self._gcs.enableControlMode([1, 2, 3])
 
-    def _testServoControlMode(self):
+
+
+    def _enableServoControlMode(self):
         self._gcs.setServoControlMode("A B C", [False, False, False])
         self.assertTrue(
             np.allclose(
                 np.array([False, False, False]),
                 self._gcs.getServoControlMode("A B C")))
 
-        self._gcs.setServoControlMode("A", [True])
+        self._gcs.setServoControlMode("A", True)
         self.assertTrue(
             np.allclose(
                 np.array([True]),
@@ -193,15 +215,126 @@ class GeneralCommandSet2Test(unittest.TestCase):
         self.assertEqual(3, self._gcs.getNumberOfOutputSignalChannels())
 
 
+    def _setVoltageLimits(self):
+        self._gcs.setLowerVoltageLimit([1, 2, 3], [20, 10, 10])
+        self.assertItemsEqual([20, 10, 10],
+                              self._gcs.getLowerVoltageLimit([1, 2, 3]))
+        self._gcs.setLowerVoltageLimit([1, 2, 3], [10, 10, 10])
+        self.assertItemsEqual([10, 10, 10],
+                              self._gcs.getLowerVoltageLimit([1, 2, 3]))
+        self._gcs.setUpperVoltageLimit([1, 2, 3], [95.5, 98, 100])
+        self.assertItemsEqual([95.5, 98, 100],
+                              self._gcs.getUpperVoltageLimit([1, 2, 3]))
 
-    def testIntegration(self):
+        self._gcs.setLowerVoltageLimit([1, 2, 3], [10, 10, 10])
+        self._gcs.setUpperVoltageLimit([1, 2, 3], [100, 100, 100])
+
+
+    def _getPosition(self):
+        pos= self._gcs.getPosition('A B C')
+        self.assertEqual(3, len(pos))
+        vol= self._gcs.getVoltages([1, 2, 3])
+        self.assertEqual(3, len(vol))
+
+
+    def _setOpenLoopAxisValue(self):
+        self._gcs.setOpenLoopAxisValue('a b c', [50, 50, 90])
+        self.assertItemsEqual([50, 50, 90],
+                              self._gcs.getOpenLoopAxisValue('a b c'))
+        self._gcs.setRelativeOpenLoopAxisValue('a', -10)
+        self.assertItemsEqual([40, 50, 90],
+                              self._gcs.getOpenLoopAxisValue('a b c'))
+        self._gcs.setOpenLoopAxisValue('a b c', [50, 50, 90])
+
+
+
+    def _resetE517ToSafe(self):
+        self._gcs.enableControlMode([1, 2, 3])
+        self._gcs.setServoControlMode('a b c', [False, False, False])
+        self._gcs.setLowerVoltageLimit([1, 2, 3], [10, 10, 10])
+        self._gcs.setUpperVoltageLimit([1, 2, 3], [100, 100, 100])
+
+
+    def testGCSWithE517(self):
         self._acceptMultipleConnectTCPIPInvocation()
         self._testRaisesIfItCantConnect()
         self._testVersion()
         self._queryConfiguration()
         self._testGcsCommand()
-        self._testControlMode()
-        self._testServoControlMode()
+        self._resetE517ToSafe()
+        self._enableControlMode()
+        self._setVoltageLimits()
+        self._setOpenLoopAxisValue()
+        self._enableServoControlMode()
+        self._getPosition()
+        self._resetE517ToSafe()
+
+
+    def _checkVoltages(self, channels, wanted, delta=0):
+        def pippo():
+            return np.allclose(np.atleast_1d(wanted),
+                               self._gcs.getVoltages(channels),
+                               atol=delta)
+
+        Barrier.waitUntil(pippo, timeoutSec=3, period=0.1)
+
+
+    def _checkPositions(self, axes, wanted, delta=0):
+        def pippo():
+            return np.allclose(np.atleast_1d(wanted),
+                               self._gcs.getPosition(axes),
+                               atol=delta)
+
+        Barrier.waitUntil(pippo, timeoutSec=3, period=0.1)
+
+
+
+    def testExample1(self):
+        self._resetE517ToSafe()
+        self._gcs.enableControlMode([1])
+        self.assertEqual(False, self._gcs.getServoControlMode('a'))
+        self._gcs.setOpenLoopAxisValue("a", 80)
+        self._checkVoltages(1, 80, delta=20)
+        self.assertRaises(PIException,
+                          self._gcs.setOpenLoopAxisValue, "a", 150)
+        self._checkVoltages(1, 80, delta=20)
+        self.assertEqual(80, self._gcs.getOpenLoopAxisValue("a"))
+        self.assertEqual(100, self._gcs.getUpperVoltageLimit(1))
+        self._gcs.setUpperVoltageLimit([1], 90)
+        self._gcs.setLowerVoltageLimit([1], 10)
+        self._gcs.setOpenLoopAxisValue("a", 85)
+        self._checkVoltages(1, 85, delta=20)
+        self.assertRaises(PIException,
+                          self._gcs.setOpenLoopAxisValue, "a", 100)
+        self._checkVoltages(1, 85, delta=20)
+        self.assertEqual(85, self._gcs.getOpenLoopAxisValue("a"))
+        self._gcs.setUpperVoltageLimit([1], 100)
+        self._gcs.setOpenLoopAxisValue("a", 100)
+        self.assertEqual(100, self._gcs.getOpenLoopAxisValue("a"))
+        self._checkVoltages(1, 100, delta=20)
+        self._checkPositions("a", 100, delta=20)
+        self._gcs.setRelativeOpenLoopAxisValue("a", -20)
+        self._checkVoltages(1, 80, delta=20)
+        self._checkPositions("a", 80, delta=20)
+        self._resetE517ToSafe()
+
+
+
+    def testExample2(self):
+        self._resetE517ToSafe()
+        self._gcs.enableControlMode([1, 2, 3])
+        self._gcs.setServoControlMode("a b c", [True, True, False])
+        #DCO
+        self._gcs.setTargetPosition("a", 30.5)
+        self._checkPositions("a", 30.5, delta=1)
+        self._gcs.setTargetPosition("b", 80)
+        self._checkPositions("a b", [30.5, 80], delta=1)
+        self._gcs.setTargetRelativeToCurrentPosition("a b", [-2, 3])
+        self._checkPositions("a b", [28.5, 83], delta=1)
+        self._resetE517ToSafe()
+        
+
+
 
 
 if __name__ == "__main__":

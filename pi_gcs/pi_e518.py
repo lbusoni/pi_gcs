@@ -1,10 +1,10 @@
-from pi_gcs import GeneralCommandSet2
+from pi_gcs.gcs2 import GeneralCommandSet2
 
 
 __version__= "$Id: $"
 
 
-class PI_E518(object):
+class PhysikInstrumenteE518(object):
 
     def __init__(self, hostname):
         self._hostname= hostname
