@@ -2,6 +2,8 @@ from ctypes.util import find_library
 import ctypes
 from ctypes import c_int, c_bool, c_char, c_char_p, c_double
 import numpy as np
+from pi_gcs.data_recorder_configuration import DataRecorderConfiguration
+from zmq.backend.cffi._cffi import cfg
 
 
 __version__= "$Id: $"
@@ -158,6 +160,13 @@ class GeneralCommandSet2(object):
             gcsFunction(self._id, axesString, valueArrayClass(valueArray)))
 
 
+    def _getterReturnString(self, gcsFunction, bufSize):
+        s=ctypes.create_string_buffer('\000', bufSize)
+        self._convertErrorToException(
+            gcsFunction(self._id, s, bufSize))
+        return s.value
+
+
     def _isConnected(self):
         return self._toBool(self._lib.PI_IsConnected(self._id))
 
@@ -200,18 +209,11 @@ class GeneralCommandSet2(object):
 
     def getVersion(self):
         bufSize= 256
-        s=ctypes.create_string_buffer('\000', bufSize)
-        self._convertErrorToException(
-            self._lib.PI_qVER(self._id, s, bufSize))
-        return s.value
+        return self._getterReturnString(self._lib.PI_qVER, bufSize)
 
 
     def getAxesIdentifiers(self):
-        bufSize= 256
-        s=ctypes.create_string_buffer('\000', bufSize)
-        self._convertErrorToException(
-            self._lib.PI_qSAI(self._id, s, bufSize))
-        return s.value.split()
+        return self._getterReturnString(self._lib.PI_qSAI, 256).split()
 
 
     def getNumberOfInputSignalChannels(self):
@@ -327,3 +329,40 @@ class GeneralCommandSet2(object):
         self._setterAxes(
             axesString, offset, self._lib.PI_MVR, CDoubleArray)
 
+
+    def getAllDataRecorderOptions(self):
+        bufSize= 1024
+        return self._getterReturnString(self._lib.PI_qHDR, bufSize)
+
+
+    def setDataRecorderConfiguration(self, dataRecorderConfiguration):
+        assert isinstance(dataRecorderConfiguration,
+                          DataRecorderConfiguration), \
+            "argument must be of type DataRecorderConfiguration"
+
+        self._lib.PI_DRC.argtypes= [c_int, CIntArray, c_char_p, CIntArray]
+
+        for tableId in dataRecorderConfiguration.tableIds():
+            source= dataRecorderConfiguration.getRecordSource(tableId)
+            option= dataRecorderConfiguration.getRecordOption(tableId)
+            self._convertErrorToException(
+                self._lib.PI_DRC(self._id, tableId, source, option))
+
+
+    def getDataRecorderConfiguration(self):
+        nRecorders= 8
+        cfg= DataRecorderConfiguration()
+
+        for i in range(nRecorders):
+            source= ctypes.create_string_buffer('\000', 256)
+            option= c_int()
+            self._convertErrorToException(
+                self._lib.PI_qDRC(self._id, i, source, ctypes.byref(option),
+                                  1, 1))
+
+            cfg.setTable(i, source, option)
+        return cfg
+
+
+    def getRecordedDataValues(self):
+        pass

@@ -7,6 +7,8 @@ from pi_gcs.gcs2 import GeneralCommandSet2, ConnectionError, CHANNEL_ONLINE,\
     CHANNEL_OFFLINE, PIException
 import ctypes
 from ctypes.util import find_library
+from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
+    RecordOption
 
 
 __version__ = "$Id:$"
@@ -332,8 +334,32 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
         self._gcs.setTargetRelativeToCurrentPosition("a b", [-2, 3])
         self._checkPositions("a b", [28.5, 83], delta=1)
         self._resetE517ToSafe()
-        
 
+
+    def testRecorder(self):
+        self._resetE517ToSafe()
+        print("%s" % self._gcs.getAllDataRecorderOptions())
+        dataRecorderCfg= DataRecorderConfiguration()
+        dataRecorderCfg.setTable(0, "A", RecordOption.CURRENT_POSITION)
+        dataRecorderCfg.setTable(1, "B", RecordOption.CURRENT_POSITION)
+        dataRecorderCfg.setTable(2, 3, RecordOption.CONTROL_VOLTAGE)
+        self._gcs.setDataRecorderConfiguration(dataRecorderCfg)
+        retrievedCfg= self._gcs.getDataRecorderConfiguration()
+        self.assertEqual(RecordOption.CURRENT_POSITION,
+                         retrievedCfg.getRecordOption(0))
+        self.assertEqual(RecordOption.CURRENT_POSITION,
+                         retrievedCfg.getRecordOption(1))
+        self.assertEqual(RecordOption.CONTROL_VOLTAGE,
+                         retrievedCfg.getRecordOption(2))
+        self.assertEqual("A", retrievedCfg.getRecordSource(0))
+        self.assertEqual("B", retrievedCfg.getRecordSource(1))
+        self.assertEqual(3, retrievedCfg.getRecordSource(2))
+
+        startFromPoint= 1
+        howMany= 10
+        record= self._gcs.getRecordedDataValues(startFromPoint, howMany)
+        self.assertEqual(howMany, len(record[0]))
+        self._resetE517ToSafe()
 
 
 
