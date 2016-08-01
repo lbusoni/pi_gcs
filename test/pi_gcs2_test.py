@@ -126,7 +126,7 @@ class CTypesTest(unittest.TestCase):
 class GeneralCommandSet2TestWithE517(unittest.TestCase):
 
     def setUp(self):
-        self._hostname= '193.206.155.117'
+        self._hostname= '192.168.29.117'
         self._gcs= GeneralCommandSet2()
         self._gcs.connectTCPIP(self._hostname)
 
@@ -257,6 +257,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
         self._gcs.setUpperVoltageLimit([1, 2, 3], [100, 100, 100])
 
 
+    @unittest.skip("skipped")
     def testGCSWithE517(self):
         self._acceptMultipleConnectTCPIPInvocation()
         self._testRaisesIfItCantConnect()
@@ -291,6 +292,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
 
 
 
+    @unittest.skip("skipped")
     def testExample1(self):
         self._resetE517ToSafe()
         self._gcs.enableControlMode([1])
@@ -322,6 +324,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
 
 
 
+    @unittest.skip("skipped")
     def testExample2(self):
         self._resetE517ToSafe()
         self._gcs.enableControlMode([1, 2, 3])
@@ -339,28 +342,53 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
     def testRecorder(self):
         self._resetE517ToSafe()
         print("%s" % self._gcs.getAllDataRecorderOptions())
+        originalCfg= self._gcs.getDataRecorderConfiguration()
+
+        nRecorders= self._gcs.getNumberOfRecorderTables()
+        self.assertEqual(8, nRecorders)
+
         dataRecorderCfg= DataRecorderConfiguration()
-        dataRecorderCfg.setTable(0, "A", RecordOption.CURRENT_POSITION)
-        dataRecorderCfg.setTable(1, "B", RecordOption.CURRENT_POSITION)
-        dataRecorderCfg.setTable(2, 3, RecordOption.CONTROL_VOLTAGE)
+        dataRecorderCfg.setTable(1, "A", RecordOption.REAL_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(2, "B", RecordOption.REAL_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(3, "1", RecordOption.VOLTAGE_OF_PIEZO_CHANNEL)
         self._gcs.setDataRecorderConfiguration(dataRecorderCfg)
         retrievedCfg= self._gcs.getDataRecorderConfiguration()
-        self.assertEqual(RecordOption.CURRENT_POSITION,
-                         retrievedCfg.getRecordOption(0))
-        self.assertEqual(RecordOption.CURRENT_POSITION,
+        self.assertEqual(RecordOption.REAL_POSITION_OF_AXIS,
                          retrievedCfg.getRecordOption(1))
-        self.assertEqual(RecordOption.CONTROL_VOLTAGE,
+        self.assertEqual(RecordOption.REAL_POSITION_OF_AXIS,
                          retrievedCfg.getRecordOption(2))
-        self.assertEqual("A", retrievedCfg.getRecordSource(0))
-        self.assertEqual("B", retrievedCfg.getRecordSource(1))
-        self.assertEqual(3, retrievedCfg.getRecordSource(2))
+        self.assertEqual(RecordOption.VOLTAGE_OF_PIEZO_CHANNEL,
+                         retrievedCfg.getRecordOption(3))
+        self.assertEqual("A", retrievedCfg.getRecordSource(1))
+        self.assertEqual("B", retrievedCfg.getRecordSource(2))
+        self.assertEqual("1", retrievedCfg.getRecordSource(3))
+
 
         startFromPoint= 1
         howMany= 10
-        record= self._gcs.getRecordedDataValues(startFromPoint, howMany)
-        self.assertEqual(howMany, len(record[0]))
+        self._gcs.startRecordingInSyncWithWaveGenerator()
+        record= self._gcs.getRecordedDataValues(howMany, startFromPoint)
+        self.assertEqual((nRecorders, howMany), record.shape)
+
+        self._gcs.setDataRecorderConfiguration(originalCfg)
         self._resetE517ToSafe()
 
+
+    def testWaveGenerator(self):
+        self._resetE517ToSafe()
+        self.assertEqual(3, self._gcs.getNumberOfWaveGenerators())
+        self._gcs.setWaveGeneratorStartStopMode([0, 0, 0])
+        res= self._gcs.getWaveGeneratorStartStopMode()
+        self.assertEqual(0, res[0])
+        self.assertEqual(0, res[1])
+        self.assertEqual(0, res[2])
+        self._gcs.setWaveGeneratorStartStopMode([1, 0, 0])
+        res= self._gcs.getWaveGeneratorStartStopMode()
+        self.assertEqual(1, res[0])
+        self.assertEqual(0, res[1])
+        self.assertEqual(0, res[2])
+        self._gcs.setWaveGeneratorStartStopMode([0, 0, 0])
+        self._resetE517ToSafe()
 
 
 if __name__ == "__main__":

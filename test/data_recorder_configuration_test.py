@@ -11,10 +11,10 @@ class DataRecorderConfigurationTest(unittest.TestCase):
 
     def testSetAndGet(self):
         cfg= DataRecorderConfiguration()
-        cfg.setTable(42, "foo", RecordOption.CONTROL_OUTPUT)
-        cfg.setTable(3.14, 111, RecordOption.CONTROL_VOLTAGE)
+        cfg.setTable(42, "foo", RecordOption.CONTROL_OUTPUT_OF_AXIS)
+        cfg.setTable(3.14, 111, RecordOption.VOLTAGE_OF_PIEZO_CHANNEL)
         self.assertEqual("foo", cfg.getRecordSource(42))
-        self.assertEqual(RecordOption.CONTROL_OUTPUT,
+        self.assertEqual(RecordOption.CONTROL_OUTPUT_OF_AXIS,
                          cfg.getRecordOption(42))
         self.assertEqual(111, cfg.getRecordSource(3.14))
         self.assertRaises(KeyError, cfg.getRecordSource, 43)

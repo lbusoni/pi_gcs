@@ -1,9 +1,8 @@
 from ctypes.util import find_library
 import ctypes
-from ctypes import c_int, c_bool, c_char, c_char_p, c_double
+from ctypes import c_int, c_bool, c_char, c_char_p, c_double, c_uint
 import numpy as np
 from pi_gcs.data_recorder_configuration import DataRecorderConfiguration
-from zmq.backend.cffi._cffi import cfg
 
 
 __version__= "$Id: $"
@@ -40,7 +39,12 @@ class CTypeArray():
 
 class CIntArray(CTypeArray):
     def __init__(self, array):
-        CTypeArray.__init__(self, c_int, array)
+        CTypeArray.__init__(self, c_int, np.array(array, dtype=np.int))
+
+
+class CUnsignedIntArray(CTypeArray):
+    def __init__(self, array):
+        CTypeArray.__init__(self, c_uint, array)
 
 
 class CDoubleArray(CTypeArray):
@@ -188,11 +192,18 @@ class GeneralCommandSet2(object):
             pass
 
 
+    def _trickToCheckForSyntaxError(self):
+        import time
+        time.sleep(0.1)
+        self._convertErrorToException(0, 1)
+
+
     def gcsCommand(self, commandAsString):
         self._lib.PI_GcsCommandset.argtypes= [c_int, c_char_p]
         self._lib.PI_GcsGetAnswer.argtypes= [c_int, c_char_p, c_int]
         self._convertErrorToException(
             self._lib.PI_GcsCommandset(self._id, commandAsString))
+        self._trickToCheckForSyntaxError()
         retSize= c_int()
         res= ''
         self._convertErrorToException(
@@ -330,9 +341,34 @@ class GeneralCommandSet2(object):
             axesString, offset, self._lib.PI_MVR, CDoubleArray)
 
 
+    def getVolatileMemoryParameters(self, itemId, parameterId):
+        self._lib.PI_qSPA.argtypes= [c_int,
+                                     c_char_p,
+                                     CUnsignedIntArray,
+                                     CDoubleArray,
+                                     c_char_p,
+                                     c_int]
+        retValue= CDoubleArray([0.])
+        bufSize= 256
+        retString= ctypes.create_string_buffer('\000', bufSize)
+
+        self._convertErrorToException(
+            self._lib.PI_qSPA(
+                self._id, str(itemId),
+                CUnsignedIntArray([parameterId]),
+                retValue,
+                retString,
+                bufSize))
+        return retValue.toNumpyArray()
+
+
     def getAllDataRecorderOptions(self):
         bufSize= 1024
-        return self._getterReturnString(self._lib.PI_qHDR, bufSize)
+        return self._getterReturnString(self._lib.PI_qHDR, bufSize).split('\n')
+
+
+    def getNumberOfRecorderTables(self):
+        return int(self.getVolatileMemoryParameters(1, 0x16000300))
 
 
     def setDataRecorderConfiguration(self, dataRecorderConfiguration):
@@ -342,27 +378,79 @@ class GeneralCommandSet2(object):
 
         self._lib.PI_DRC.argtypes= [c_int, CIntArray, c_char_p, CIntArray]
 
-        for tableId in dataRecorderConfiguration.tableIds():
+        for tableId in dataRecorderConfiguration.getTableIds():
             source= dataRecorderConfiguration.getRecordSource(tableId)
             option= dataRecorderConfiguration.getRecordOption(tableId)
             self._convertErrorToException(
-                self._lib.PI_DRC(self._id, tableId, source, option))
+                self._lib.PI_DRC(self._id,
+                                 CIntArray([tableId]),
+                                 source,
+                                 CIntArray([option])))
 
 
     def getDataRecorderConfiguration(self):
-        nRecorders= 8
+        nRecorders= self.getNumberOfRecorderTables()
+        sourceBufSize= 256
+        source= ctypes.create_string_buffer('\000', sourceBufSize)
+        option= CIntArray(np.zeros(nRecorders, dtype=np.int32))
+        table=CIntArray(np.arange(1, nRecorders + 1))
+
+        self._lib.PI_qDRC.argtypes= [c_int, CIntArray, c_char_p,
+                                     CIntArray, c_int, c_int]
+
+        self._convertErrorToException(
+            self._lib.PI_qDRC(self._id, table, source,
+                              option, sourceBufSize, nRecorders))
+
+        sources= [x.strip() for x in source.value.split('\n')]
         cfg= DataRecorderConfiguration()
-
         for i in range(nRecorders):
-            source= ctypes.create_string_buffer('\000', 256)
-            option= c_int()
-            self._convertErrorToException(
-                self._lib.PI_qDRC(self._id, i, source, ctypes.byref(option),
-                                  1, 1))
-
-            cfg.setTable(i, source, option)
+            cfg.setTable(table.toNumpyArray()[i],
+                         sources[i],
+                         option.toNumpyArray()[i])
         return cfg
 
 
-    def getRecordedDataValues(self):
-        pass
+    def getRecordedDataValues(self, howManyPoints, startFromPoint=1):
+        nRecorders= self.getNumberOfRecorderTables()
+        value= CDoubleArray(np.zeros(howManyPoints))
+        retBuf= np.zeros((nRecorders, howManyPoints))
+        self._lib.PI_qDRR_SYNC.argtypes=[c_int, c_int, c_int,
+                                         c_int, CDoubleArray]
+
+        for i in range(nRecorders):
+            self._convertErrorToException(
+                self._lib.PI_qDRR_SYNC(
+                    self._id, i + 1, startFromPoint,
+                    len(value.toNumpyArray()), value))
+            retBuf[i, :]= value.toNumpyArray()
+
+        return retBuf
+
+
+    def startRecordingInSyncWithWaveGenerator(self):
+        self._convertErrorToException(
+            self._lib.PI_WGR(self._id))
+
+
+    def getNumberOfWaveGenerators(self):
+        return 3
+
+
+    def getWaveGeneratorStartStopMode(self):
+        nWaveGenerators= self.getNumberOfWaveGenerators()
+        self._lib.PI_qWGO.argtypes= [c_int, CIntArray, CIntArray, c_int]
+        wgIds= CIntArray(np.arange(1, nWaveGenerators+ 1))
+        values= CIntArray(np.zeros(nWaveGenerators))
+        self._convertErrorToException(
+            self._lib.PI_qWGO(self._id, wgIds, values, nWaveGenerators))
+        return values.toNumpyArray()
+
+
+    def setWaveGeneratorStartStopMode(self, startModeArray):
+        nWaveGenerators= self.getNumberOfWaveGenerators()
+        self._lib.PI_WGO.argtypes= [c_int, CIntArray, CIntArray, c_int]
+        wgIds= CIntArray(np.arange(1, nWaveGenerators+ 1))
+        values= CIntArray(startModeArray)
+        self._convertErrorToException(
+            self._lib.PI_WGO(self._id, wgIds, values, nWaveGenerators))

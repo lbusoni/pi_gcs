@@ -4,17 +4,32 @@ __version__= "$Id: $"
 
 
 class RecordOption(object):
-    TARGET_POSITION= 1
-    CURRENT_POSITION= 2
-    POSITION_ERROR= 3
-    CONTROL_OUTPUT= 15
-    CONTROL_VOLTAGE= 7
+    UNKNOWN_OPTION= 0
+    TARGET_POSITION_OF_AXIS= 1
+    REAL_POSITION_OF_AXIS= 2
+    POSITION_ERROR_OF_AXIS= 3
+    VOLTAGE_OF_PIEZO_CHANNEL= 7
+    CONTROL_OUTPUT_OF_AXIS= 15
+    DAC_OF_PIEZO_CHANNEL= 16
+    SENSOR_VALUE= 17
+    SENSOR_FILTERED= 18
+    TARGET_POSITION_SLEW_RATE_LIMITED= 22
+    DRIFT_COMPENSATION_OFFSET= 32
+    ADC_OF_ANALOG_INPUT= 81
 
-    ALL_OPTIONS= [TARGET_POSITION,
-                  CURRENT_POSITION,
-                  POSITION_ERROR,
-                  CONTROL_OUTPUT,
-                  CONTROL_VOLTAGE]
+
+    ALL_OPTIONS= [UNKNOWN_OPTION,
+                  TARGET_POSITION_OF_AXIS,
+                  REAL_POSITION_OF_AXIS,
+                  POSITION_ERROR_OF_AXIS,
+                  VOLTAGE_OF_PIEZO_CHANNEL,
+                  CONTROL_OUTPUT_OF_AXIS,
+                  DAC_OF_PIEZO_CHANNEL,
+                  SENSOR_VALUE,
+                  SENSOR_FILTERED,
+                  TARGET_POSITION_SLEW_RATE_LIMITED,
+                  DRIFT_COMPENSATION_OFFSET,
+                  ADC_OF_ANALOG_INPUT]
 
 
 class DataRecorderConfiguration(object):
