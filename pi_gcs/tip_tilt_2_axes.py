@@ -1,0 +1,163 @@
+import numpy as np
+from pi_gcs.gcs2 import WaveformGenerator
+from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
+    RecordOption
+
+__version__= "$Id: $"
+
+
+
+class TipTilt2Axis(object):
+
+    AXIS_A= "A"
+    AXIS_B= "B"
+    ALL_AXES= "A B"
+    ALL_CHANNELS= [1, 2, 3]
+
+    def __init__(self, piController, tipTiltConfiguration):
+        self._ctrl= piController
+        self._cfg= tipTiltConfiguration
+
+        self._origTargetPosition= None
+
+        self._checkNumberOfChannels()
+        self._enableRemoteControlMode()
+        self._stopWaveformGenerators()
+        self._setVoltageLimits()
+        self.disableControlLoop()
+        self._configure3rdAxisAsPivot()
+        self.enableControlLoop()
+
+
+    def _checkNumberOfChannels(self):
+        assert 3 == self._ctrl.getNumberOfInputSignalChannels()
+        assert 3 == self._ctrl.getNumberOfOutputSignalChannels()
+
+
+    def _enableRemoteControlMode(self):
+        self._ctrl.enableControlMode(self.ALL_CHANNELS)
+
+
+    def _stopWaveformGenerators(self):
+        self._ctrl.setWaveGeneratorStartStopMode([0, 0, 0])
+
+
+    def _setVoltageLimits(self):
+        self._ctrl.setLowerVoltageLimit(
+            self.ALL_CHANNELS, self._cfg.lowerVoltageLimit)
+        self._ctrl.setUpperVoltageLimit(
+            self.ALL_CHANNELS, self._cfg.upperVoltageLimit)
+
+
+    def _configure3rdAxisAsPivot(self):
+        pivotAxis= self._ctrl.getAxesIdentifiers()[2]
+        self._ctrl.setServoControlMode(pivotAxis, [False])
+        self._ctrl.setOpenLoopAxisValue(pivotAxis, self._cfg.pivotValue)
+
+
+    def enableControlLoop(self):
+        self._ctrl.setServoControlMode(self.ALL_AXES, [True, True])
+
+
+    def disableControlLoop(self):
+        self._ctrl.setServoControlMode(self.ALL_AXES, [False, False])
+
+
+    def isControlLoopEnabled(self):
+        return np.all(self._ctrl.getServoControlMode(self.ALL_AXES))
+
+
+    def getPosition(self):
+        return self._ctrl.getPosition(self.ALL_AXES)
+
+
+    def getTargetPosition(self):
+        return self._ctrl.getTargetPosition(self.ALL_AXES)
+
+
+    def setTargetPosition(self, position):
+        return self._ctrl.setTargetPosition(self.ALL_AXES, position)
+
+
+    def getVoltages(self):
+        return self._ctrl.getVoltages(self.ALL_CHANNELS)
+
+
+    def startModulation(self,
+                        radiusInMilliRad,
+                        frequencyInHz,
+                        centerInMilliRad):
+        self._origTargetPosition= centerInMilliRad
+        self.stopModulation()
+
+        periodInSec= 1./ frequencyInHz
+        assert np.ptp(self._ctrl.getWaveGeneratorTableRate()) == 0, \
+            "wave generator table rate must be the same for every table"
+        wgtr= self._ctrl.getWaveGeneratorTableRate()[0]
+        timestep= self._ctrl.getServoUpdateTimeInSeconds() * wgtr
+
+        lengthInPoints= periodInSec/ timestep
+        amplitudeOfTheSineCurve= 2* radiusInMilliRad
+        offsetOfTheSineCurve= self.getTargetPosition() - radiusInMilliRad
+        wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
+        startPoint= np.array([0, 0.25])* wavelengthOfTheSineCurveInPoints
+        curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
+
+        self._ctrl.clearWaveTableData([1, 2, 3])
+        self._ctrl.setSinusoidalWaveform(
+            1, WaveformGenerator.CLEAR, lengthInPoints,
+            amplitudeOfTheSineCurve, offsetOfTheSineCurve[0],
+            wavelengthOfTheSineCurveInPoints, startPoint[0], curveCenterPoint)
+        self._ctrl.setSinusoidalWaveform(
+            2, WaveformGenerator.CLEAR, lengthInPoints,
+            amplitudeOfTheSineCurve, offsetOfTheSineCurve[1],
+            wavelengthOfTheSineCurveInPoints, startPoint[1], curveCenterPoint)
+        self._ctrl.setConnectionOfWaveTableToWaveGenerator([1, 2], [1, 2])
+        self._ctrl.setWaveGeneratorStartStopMode([1, 1, 0])
+
+
+    def stopModulation(self):
+        self._stopWaveformGenerators()
+        if self._origTargetPosition is not None:
+            self.setTargetPosition(self._origTargetPosition)
+
+
+    def _defaultDataRecorderConfiguration(self):
+        dataRecorderCfg= DataRecorderConfiguration()
+        dataRecorderCfg.setTable(1, "A", RecordOption.REAL_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(2, "B", RecordOption.REAL_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(3, "A", RecordOption.POSITION_ERROR_OF_AXIS)
+        dataRecorderCfg.setTable(4, "B", RecordOption.POSITION_ERROR_OF_AXIS)
+        dataRecorderCfg.setTable(5, "A", RecordOption.TARGET_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(6, "B", RecordOption.TARGET_POSITION_OF_AXIS)
+        return dataRecorderCfg
+
+
+    def _configureDataRecoders(self, dataRecorderCfg=None):
+        if dataRecorderCfg is None:
+            dataRecorderCfg= self._defaultDataRecorderConfiguration()
+        self._ctrl.setDataRecorderConfiguration(dataRecorderCfg)
+
+
+    def getDataRecorderConfiguration(self):
+        return self._ctrl.getDataRecorderConfiguration()
+
+
+    def getRecordedData(self, howManyPoints, dataRecorderCfg=None):
+        self._configureDataRecoders(dataRecorderCfg)
+        self._ctrl.startRecordingInSyncWithWaveGenerator()
+        timestep= self._ctrl.getServoUpdateTimeInSeconds()
+        rtr= self._ctrl.getRecordTableRate()
+        timeValues= np.arange(howManyPoints) * timestep * rtr
+        recData= self._ctrl.getRecordedDataValues(howManyPoints, 1)
+        return np.vstack((timeValues, recData))
+
+
+    def status(self):
+        status={}
+        status['POSITION']= self.getPosition()
+        status['TARGET']= self.getTargetPosition()
+        status['OUTPUT_VOLTAGE']= self.getVoltages()
+        status['CONTROL_LOOP_CLOSED']= self.isControlLoopEnabled()
+        status['OVERFLOW']= self._ctrl.getOverflowState(self.ALL_AXES)
+        return status

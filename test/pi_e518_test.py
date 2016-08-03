@@ -17,6 +17,7 @@ class PhysikInstrumenteE518Test(unittest.TestCase):
         pass
 
 
+    @unittest.skip("skipped")
     def testFoo(self):
         self.pi518.connectTCPIP()
         self.assertEqual('foo',

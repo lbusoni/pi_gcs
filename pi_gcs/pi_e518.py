@@ -4,6 +4,8 @@ from pi_gcs.gcs2 import GeneralCommandSet2
 __version__= "$Id: $"
 
 
+
+
 class PhysikInstrumenteE518(object):
 
     def __init__(self, hostname):
@@ -16,6 +18,5 @@ class PhysikInstrumenteE518(object):
         return 'foo'
 
 
-
-
-    
+    def set(self):
+        pass

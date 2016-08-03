@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import time
 from pi_gcs.gcs2 import GeneralCommandSet2, ConnectionError, CHANNEL_ONLINE,\
-    CHANNEL_OFFLINE, PIException
+    CHANNEL_OFFLINE, PIException, WaveformGenerator
 import ctypes
 from ctypes.util import find_library
 from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
@@ -377,17 +377,39 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
     def testWaveGenerator(self):
         self._resetE517ToSafe()
         self.assertEqual(3, self._gcs.getNumberOfWaveGenerators())
+        self._gcs.setConnectionOfWaveTableToWaveGenerator(
+            [1, 2, 3], [3, 1, 2])
+        self.assertTrue(
+            np.allclose(
+                [3, 1, 2],
+                self._gcs.getConnectionOfWaveTableToWaveGenerator([1, 2, 3])))
+
         self._gcs.setWaveGeneratorStartStopMode([0, 0, 0])
         res= self._gcs.getWaveGeneratorStartStopMode()
         self.assertEqual(0, res[0])
         self.assertEqual(0, res[1])
         self.assertEqual(0, res[2])
+
+        lengthInPoints= 1000
+        amplitudeOfTheSineCurve= 10.
+        offsetOfTheSineCurve= 45.
+        wavelengthOfTheSineCurveInPoints= 1000
+        startPoint= 0
+        curveCenterPoint= 500
+        self._gcs.setSinusoidalWaveform(
+            1, WaveformGenerator.CLEAR, lengthInPoints,
+            amplitudeOfTheSineCurve, offsetOfTheSineCurve,
+            wavelengthOfTheSineCurveInPoints, startPoint, curveCenterPoint)
+        self._gcs.setConnectionOfWaveTableToWaveGenerator([1, 2, 3], [1, 2, 3])
+
         self._gcs.setWaveGeneratorStartStopMode([1, 0, 0])
         res= self._gcs.getWaveGeneratorStartStopMode()
         self.assertEqual(1, res[0])
         self.assertEqual(0, res[1])
         self.assertEqual(0, res[2])
+
         self._gcs.setWaveGeneratorStartStopMode([0, 0, 0])
+        self._gcs.clearWaveTableData([1, 2, 3])
         self._resetE517ToSafe()
 
 

@@ -2,7 +2,9 @@ from ctypes.util import find_library
 import ctypes
 from ctypes import c_int, c_bool, c_char, c_char_p, c_double, c_uint
 import numpy as np
-from pi_gcs.data_recorder_configuration import DataRecorderConfiguration
+from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
+    RecordOption
+from pi_gcs.abstract_gcs2 import AbstractGeneralCommandSet
 
 
 __version__= "$Id: $"
@@ -68,7 +70,16 @@ class Channels(CIntArray):
         CIntArray.__init__(self, channels)
 
 
-class GeneralCommandSet2(object):
+
+class WaveformGenerator(object):
+    CLEAR= 0
+    APPEND= 1
+    ADD= 2
+
+    ALL= [CLEAR, APPEND, ADD]
+
+
+class GeneralCommandSet2(AbstractGeneralCommandSet):
 
     GCS_TRUE= 1
     GCS_FALSE= 0
@@ -242,12 +253,8 @@ class GeneralCommandSet2(object):
 
 
     def getServoControlMode(self, axesString):
-        nCh= len(axesString.split())
-        svo= CIntArray([False]* nCh)
-        self._lib.PI_qSVO.argtypes= [c_int, c_char_p, CIntArray]
-        self._convertErrorToException(
-            self._lib.PI_qSVO(self._id, axesString, svo))
-        return svo.toNumpyArray().astype('bool')
+        return self._getterAxes(
+            axesString, self._lib.PI_qSVO, CIntArray).astype(np.bool)
 
 
     def setServoControlMode(self, axesString, controlMode):
@@ -454,3 +461,124 @@ class GeneralCommandSet2(object):
         values= CIntArray(startModeArray)
         self._convertErrorToException(
             self._lib.PI_WGO(self._id, wgIds, values, nWaveGenerators))
+
+
+    def clearWaveTableData(self, waveTableIdsArray):
+        self._lib.PI_WCL.argtypes= [c_int, CIntArray, c_int]
+        table= CIntArray(waveTableIdsArray)
+        self._convertErrorToException(
+            self._lib.PI_WCL(self._id, table, len(waveTableIdsArray)))
+
+
+    def getConnectionOfWaveTableToWaveGenerator(self, waveGeneratorsArray):
+        self._lib.PI_qWSL.argtypes= [c_int, CIntArray, CIntArray, c_int]
+        nItems= len(waveGeneratorsArray)
+        waveGenerators= CIntArray(waveGeneratorsArray)
+        waveTable= CIntArray(np.zeros(nItems))
+        self._convertErrorToException(
+            self._lib.PI_qWSL(self._id,
+                              waveGenerators,
+                              waveTable,
+                              nItems))
+        return waveTable.toNumpyArray()
+
+
+    def setConnectionOfWaveTableToWaveGenerator(self,
+                                                waveGeneratorsArray,
+                                                waveTableIdsArray):
+        assert len(waveGeneratorsArray) == len(waveTableIdsArray)
+        self._lib.PI_WSL.argtypes= [c_int, CIntArray, CIntArray, c_int]
+        waveGenerators= CIntArray(waveGeneratorsArray)
+        waveTable= CIntArray(waveTableIdsArray)
+        self._convertErrorToException(
+            self._lib.PI_WSL(self._id,
+                             waveGenerators,
+                             waveTable,
+                             len(waveTableIdsArray)))
+
+
+
+
+    def setSinusoidalWaveform(self,
+                              waveTableId,
+                              append,
+                              lengthInPoints,
+                              amplitudeOfTheSineCurve,
+                              offsetOfTheSineCurve,
+                              wavelengthOfTheSineCurveInPoints,
+                              startPoint,
+                              curveCenterPoint):
+        assert append in WaveformGenerator.ALL
+
+        self._lib.PI_WAV_SIN_P.argtypes= [c_int, c_int, c_int, c_int, c_int,
+                                          c_int, c_double, c_double, c_int]
+        self._convertErrorToException(
+            self._lib.PI_WAV_SIN_P(self._id,
+                                   waveTableId,
+                                   int(startPoint),
+                                   int(wavelengthOfTheSineCurveInPoints),
+                                   append,
+                                   int(curveCenterPoint),
+                                   amplitudeOfTheSineCurve,
+                                   offsetOfTheSineCurve,
+                                   int(lengthInPoints)))
+
+
+
+    def setRecordTableRate(self, recordTableRateInServoLoopCycles=1):
+        self._lib.PI_RTR.argtypes= [c_int, c_int]
+        self._convertErrorToException(
+            self._lib.PI_RTR(self._id, int(recordTableRateInServoLoopCycles)))
+
+
+    def getRecordTableRate(self):
+        rtr= c_int()
+        self._convertErrorToException(
+            self._lib.PI_qRTR(self._id, ctypes.byref(rtr)))
+        return rtr
+
+
+    def getServoUpdateTimeInSeconds(self):
+        return self.getVolatileMemoryParameters(1, 0x0E000200)
+
+
+
+
+    def setWaveGeneratorTableRate(self,
+                                  waveGeneratorTableRateInServoLoopCycles):
+        self._lib.PI_WTR.argtypes= [c_int, CIntArray, CIntArray,
+                                    CIntArray, c_int]
+        nWaveGenerators= self.getNumberOfWaveGenerators()
+        wgIds= CIntArray(np.arange(1, nWaveGenerators+ 1))
+        tableRate= CIntArray(waveGeneratorTableRateInServoLoopCycles)
+        interpolation= CIntArray(np.zeros(nWaveGenerators))
+
+        self._convertErrorToException(
+            self._lib.PI_WTR(self._id,
+                             wgIds,
+                             tableRate,
+                             interpolation,
+                             nWaveGenerators))
+
+
+    def getWaveGeneratorTableRate(self):
+        self._lib.PI_qWTR.argtypes= [c_int, CIntArray, CIntArray,
+                                     CIntArray, c_int]
+
+        nWaveGenerators= self.getNumberOfWaveGenerators()
+        wgIds= CIntArray(np.arange(1, nWaveGenerators+ 1))
+        tableRate= CIntArray(np.zeros(nWaveGenerators))
+        interpolation= CIntArray(np.zeros(nWaveGenerators))
+        self._convertErrorToException(
+            self._lib.PI_qWTR(self._id,
+                              wgIds,
+                              tableRate,
+                              interpolation,
+                              nWaveGenerators))
+        return tableRate.toNumpyArray()
+
+
+    def getOverflowState(self, axesString):
+        return self._getterAxes(
+            axesString, self._lib.PI_qOVF, CIntArray).astype(np.bool)
+
