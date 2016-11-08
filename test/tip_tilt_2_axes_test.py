@@ -12,6 +12,7 @@ class TipTilt2AxisTest(unittest.TestCase):
         self._ctrl= FakeGeneralCommandSet()
         self._cfg= TipTiltConfiguration()
         self._tt= TipTilt2Axis(self._ctrl, self._cfg)
+        self._tt.setUp()
 
 
     def testVoltageLimitsAreSetAtStartUp(self):

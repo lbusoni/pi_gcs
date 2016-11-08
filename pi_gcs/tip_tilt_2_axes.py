@@ -19,7 +19,12 @@ class TipTilt2Axis(object):
         self._cfg= tipTiltConfiguration
 
         self._origTargetPosition= None
+        self._modulationEnabled= False
 
+
+
+    def setUp(self):
+        self._connectController()
         self._checkNumberOfChannels()
         self._enableRemoteControlMode()
         self._stopWaveformGenerators()
@@ -27,6 +32,10 @@ class TipTilt2Axis(object):
         self.disableControlLoop()
         self._configure3rdAxisAsPivot()
         self.enableControlLoop()
+
+
+    def _connectController(self):
+        self._ctrl.connectTCPIP(self._cfg.hostname)
 
 
     def _checkNumberOfChannels(self):
@@ -114,12 +123,17 @@ class TipTilt2Axis(object):
             wavelengthOfTheSineCurveInPoints, startPoint[1], curveCenterPoint)
         self._ctrl.setConnectionOfWaveTableToWaveGenerator([1, 2], [1, 2])
         self._ctrl.setWaveGeneratorStartStopMode([1, 1, 0])
-
+        self._modulationEnabled= True
 
     def stopModulation(self):
         self._stopWaveformGenerators()
+        self._modulationEnabled= False
         if self._origTargetPosition is not None:
             self.setTargetPosition(self._origTargetPosition)
+
+
+    def isModulationEnabled(self):
+        return self._modulationEnabled
 
 
     def _defaultDataRecorderConfiguration(self):

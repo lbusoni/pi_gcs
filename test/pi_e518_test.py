@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import unittest
-from pi_gcs.pi_e518 import PhysikInstrumenteE518
+from pi_gcs.pi_e518 import PhysikInstrumenteE518Client
 
 __version__ = "$Id:$"
 
@@ -10,7 +10,7 @@ class PhysikInstrumenteE518Test(unittest.TestCase):
 
     def setUp(self):
         hostname= 'host.name.org'
-        self.pi518= PhysikInstrumenteE518(hostname)
+        self.pi518= PhysikInstrumenteE518Client(hostname)
 
 
     def tearDown(self):

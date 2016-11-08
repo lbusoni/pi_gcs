@@ -6,17 +6,16 @@ __version__= "$Id: $"
 
 
 
-class PhysikInstrumenteE518(object):
+class PhysikInstrumenteE518Client(object):
 
-    def __init__(self, hostname):
+    def __init__(self, hostname, generalCommandSet):
         self._hostname= hostname
-        self._gcs= GeneralCommandSet2()
-        self._gcs.connectTCPIP(self._hostname)
+        self._generalCommandSet= generalCommandSet
 
 
     def foo(self):
         return 'foo'
 
 
-    def set(self):
-        pass
+    def connect(self):
+        self.connectTCPIP(self._hostname)
