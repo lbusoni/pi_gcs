@@ -582,3 +582,10 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         return self._getterAxes(
             axesString, self._lib.PI_qOVF, CIntArray).astype(np.bool)
 
+
+    def setDataRecoderTriggerSource(self, source, value):
+        pass
+
+
+    def getDataRecorderTriggerSource(self):
+        pass

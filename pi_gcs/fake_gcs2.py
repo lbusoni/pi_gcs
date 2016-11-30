@@ -272,3 +272,11 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
 
     def getOverflowState(self):
         pass
+
+
+    def setDataRecoderTriggerSource(self, source, value):
+        pass
+
+
+    def getDataRecorderTriggerSource(self):
+        pass

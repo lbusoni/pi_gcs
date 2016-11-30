@@ -249,3 +249,15 @@ class AbstractGeneralCommandSet(object):
     @abc.abstractmethod
     def getOverflowState(self):
         assert False
+
+
+    @abc.abstractmethod
+    def setDataRecoderTriggerSource(self, source, value):
+        assert False
+
+
+    @abc.abstractmethod
+    def getDataRecorderTriggerSource(self):
+        assert False
+
+
