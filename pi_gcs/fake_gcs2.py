@@ -1,5 +1,6 @@
 import numpy as np
 from pi_gcs.abstract_gcs2 import AbstractGeneralCommandSet
+from pi_gcs.gcs2 import WaveformGenerator
 
 
 __version__= "$Id: $"
@@ -21,6 +22,7 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         self._rtr= 1
         self._wtr= np.ones(3)
         self.triggerStartRecordingInSyncWithWaveGenerator= 0
+        self._waveform= {}
 
 
     def _dictToArray(self, dicto, keys):
@@ -126,14 +128,11 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
 
 
     def getPosition(self, axesString):
-        axes= [x.strip() for x in axesString.split(' ')]
         return self.getTargetPosition(axesString)
-
 
 
     def getVoltages(self, channels):
         pass
-
 
 
     def getOpenLoopAxisValue(self, axesString):
@@ -164,10 +163,8 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         pass
 
 
-
     def getVolatileMemoryParameters(self, itemId, parameterId):
         pass
-
 
 
     def getAllDataRecorderOptions(self):
@@ -179,23 +176,18 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         return 11
 
 
-
     def setDataRecorderConfiguration(self, dataRecorderConfiguration):
         pass
-
 
 
     def getDataRecorderConfiguration(self):
         pass
 
 
-
     def getRecordedDataValues(self, howManyPoints, startFromPoint=1):
         nRecorders= self.getNumberOfRecorderTables()
         return np.arange(howManyPoints * nRecorders).\
             reshape((nRecorders, howManyPoints))
-
-
 
 
     def startRecordingInSyncWithWaveGenerator(self):
@@ -206,11 +198,9 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         pass
 
 
-
     def getWaveGeneratorStartStopMode(self):
         return self._dictToArray(self._waveGeneratorStartStopMode,
                                  [1, 2, 3])
-
 
 
     def setWaveGeneratorStartStopMode(self, startModeArray):
@@ -219,15 +209,12 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
                           startModeArray)
 
 
-
     def clearWaveTableData(self, waveTableIdsArray):
         pass
 
 
-
     def getConnectionOfWaveTableToWaveGenerator(self, waveGeneratorsArray):
         pass
-
 
 
     def setConnectionOfWaveTableToWaveGenerator(self,
@@ -245,8 +232,32 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
                               wavelengthOfTheSineCurveInPoints,
                               startPoint,
                               curveCenterPoint):
-        pass
+        '''
+        See description of PI_WAV_SIN_P in PI GCS 2.0 DLL doc
+        '''
+        assert append == WaveformGenerator.CLEAR, 'only CLEAR implemented'
+        curveCenterPoint= int(round(curveCenterPoint))
+        wavelengthOfTheSineCurveInPoints= \
+            int(round(wavelengthOfTheSineCurveInPoints))
+        startPoint= int(round(startPoint))
+        lengthInPoints= int(round(lengthInPoints    ))
+        ccUp= 0.5* curveCenterPoint
+        rampUp= 0.5 * amplitudeOfTheSineCurve* (1 + np.sin(
+            np.arange(-ccUp, ccUp) / ccUp * np.pi / 2))
+        ccDown= 0.5* (wavelengthOfTheSineCurveInPoints - curveCenterPoint)
+        rampDown= 0.5 * amplitudeOfTheSineCurve* (1 - np.sin(
+            np.arange(-ccDown, ccDown) / ccDown * np.pi / 2))
+        waveform= np.zeros(lengthInPoints) + offsetOfTheSineCurve
+        waveform[startPoint:
+                 startPoint+ curveCenterPoint]= offsetOfTheSineCurve + rampUp
+        waveform[startPoint+ curveCenterPoint:
+                 startPoint+ wavelengthOfTheSineCurveInPoints]= \
+            offsetOfTheSineCurve + rampDown
+        self._waveform[waveTableId]= waveform
 
+
+    def getWaveform(self, waveTableId):
+        return self._waveform[waveTableId]
 
 
     def setRecordTableRate(self, recordTableRateInServoLoopCycles=1):
