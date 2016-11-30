@@ -72,6 +72,15 @@ class FakeGeneralCommandSetTest(unittest.TestCase):
                      (curveCenterPoint + wavelengthOfTheSineCurveInPoints)])
 
 
+    def testTargetPosition(self):
+        target= [12, 34]
+        self._ctrl.setTargetPosition('P F', target)
+        self.assertEqual(12, self._ctrl.getTargetPosition('P'))
+        self.assertEqual(34, self._ctrl.getTargetPosition('F'))
+        self.assertTrue(np.allclose(target,
+                                    self._ctrl.getTargetPosition('P F')))
+
+
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
