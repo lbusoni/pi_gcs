@@ -10,9 +10,25 @@ class TipTilt2AxisTest(unittest.TestCase):
 
     def setUp(self):
         self._ctrl= FakeGeneralCommandSet()
-        self._cfg= TipTiltConfiguration()
+        self._createConfiguration()
         self._tt= TipTilt2Axis(self._ctrl, self._cfg)
         self._tt.setUp()
+
+
+    def _createConfiguration(self):
+        self._cfg= TipTiltConfiguration()
+        self._posToMilliRadALinear= 12.2
+        self._posToMilliRadAOffset= -123.
+        self._posToMilliRadBLinear= 33e-3
+        self._posToMilliRadBOffset= 4.4
+        self._cfg.positionToMilliRadAxisALinearCoeff= \
+            self._posToMilliRadALinear
+        self._cfg.positionToMilliRadAxisAOffsetCoeff= \
+            self._posToMilliRadAOffset
+        self._cfg.positionToMilliRadAxisBLinearCoeff= \
+            self._posToMilliRadBLinear
+        self._cfg.positionToMilliRadAxisBOffsetCoeff= \
+            self._posToMilliRadBOffset
 
 
     def testVoltageLimitsAreSetAtStartUp(self):
@@ -51,15 +67,40 @@ class TipTilt2AxisTest(unittest.TestCase):
             np.allclose([2.5, 5], self._tt.getTargetPosition()))
 
 
+    def _savePlot(self, data, filename):
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+
+        plt.plot(data)
+        plt.savefig(filename)
+
+
     def testStartStopModulation(self):
-        self._tt.startModulation(10., 100., [44, 55])
+        radiusInMilliRad= 12.4
+        frequencyInHz= 100.
+        centerInMilliRad= [-10, 15]
+        self._tt.setTargetPosition(centerInMilliRad)
+        self._tt.startModulation(radiusInMilliRad,
+                                 frequencyInHz,
+                                 centerInMilliRad)
         self.assertTrue(
             np.allclose(
                 [1, 1, 0],
                 self._ctrl.getWaveGeneratorStartStopMode()))
+        waveform= self._ctrl.getWaveform(1)
+        wants= self._tt._milliRadToGcsUnitsOneAxis(-10, self._tt.AXIS_A)
+        got= np.mean(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+        wants= self._tt._milliRadToGcsUnitsOneAxis(-10 + 12.4, self._tt.AXIS_A)
+        got= np.max(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+
         self._tt.stopModulation()
         self.assertTrue(
-            np.allclose([44, 55], self._tt.getTargetPosition()))
+            np.allclose(centerInMilliRad, self._tt.getTargetPosition()))
 
 
     def testRecordingData(self):
@@ -72,6 +113,27 @@ class TipTilt2AxisTest(unittest.TestCase):
         self.assertEqual(
             cntr + 1,
             self._ctrl.triggerStartRecordingInSyncWithWaveGenerator)
+
+
+    def testConvertFromGCSUnitToMilliRad(self):
+        gcsX= 12.5
+        gcsY= -23.5
+        self._ctrl.setTargetPosition(self._tt.ALL_AXES, np.array([gcsX, gcsY]))
+
+        mRadA= self._tt.getPosition()[0]
+        mRadB= self._tt.getPosition()[1]
+
+        wantA= gcsX * self._posToMilliRadALinear + self._posToMilliRadAOffset
+        wantB= gcsY * self._posToMilliRadBLinear + self._posToMilliRadBOffset
+
+        self.assertEqual(wantA, mRadA, "wanted %s got %s" % (wantA, mRadA))
+        self.assertEqual(wantB, mRadB, "wanted %s got %s" % (wantB, mRadB))
+
+        mRadA= self._tt.getTargetPosition()[0]
+        mRadB= self._tt.getTargetPosition()[1]
+
+        self.assertEqual(wantA, mRadA, "wanted %s got %s" % (wantA, mRadA))
+        self.assertEqual(wantB, mRadB, "wanted %s got %s" % (wantB, mRadB))
 
 if __name__ == "__main__":
     unittest.main()
