@@ -235,12 +235,17 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         '''
         See description of PI_WAV_SIN_P in PI GCS 2.0 DLL doc
         '''
-        assert append == WaveformGenerator.CLEAR, 'only CLEAR implemented'
         curveCenterPoint= int(round(curveCenterPoint))
         wavelengthOfTheSineCurveInPoints= \
             int(round(wavelengthOfTheSineCurveInPoints))
         startPoint= int(round(startPoint))
-        lengthInPoints= int(round(lengthInPoints    ))
+        lengthInPoints= int(round(lengthInPoints))
+        assert append == WaveformGenerator.CLEAR, 'only CLEAR implemented'
+        assert startPoint >= 0
+        assert startPoint < lengthInPoints
+        assert curveCenterPoint >= 0
+        assert startPoint + curveCenterPoint < lengthInPoints
+
         ccUp= 0.5* curveCenterPoint
         rampUp= 0.5 * amplitudeOfTheSineCurve* (1 + np.sin(
             np.arange(-ccUp, ccUp) / ccUp * np.pi / 2))
@@ -248,11 +253,10 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         rampDown= 0.5 * amplitudeOfTheSineCurve* (1 - np.sin(
             np.arange(-ccDown, ccDown) / ccDown * np.pi / 2))
         waveform= np.zeros(lengthInPoints) + offsetOfTheSineCurve
-        waveform[startPoint:
-                 startPoint+ curveCenterPoint]= offsetOfTheSineCurve + rampUp
-        waveform[startPoint+ curveCenterPoint:
-                 startPoint+ wavelengthOfTheSineCurveInPoints]= \
+        waveform[0: curveCenterPoint]= offsetOfTheSineCurve + rampUp
+        waveform[curveCenterPoint: wavelengthOfTheSineCurveInPoints]= \
             offsetOfTheSineCurve + rampDown
+        waveform= np.roll(waveform, startPoint)
         self._waveform[waveTableId]= waveform
 
 
