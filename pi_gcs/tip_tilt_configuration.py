@@ -60,7 +60,7 @@ class TipTiltConfiguration():
 
     @property
     def positionToMilliRadAxisALinearCoeff(self):
-        self._calib[self.POSITION_TO_MILLIRAD_AXIS_A_LINEAR_COEFF]
+        return self._calib[self.POSITION_TO_MILLIRAD_AXIS_A_LINEAR_COEFF]
 
 
     @positionToMilliRadAxisALinearCoeff.setter
@@ -70,7 +70,7 @@ class TipTiltConfiguration():
 
     @property
     def positionToMilliRadAxisAOffsetCoeff(self):
-        self._calib[self.POSITION_TO_MILLIRAD_AXIS_A_OFFSET_COEFF]
+        return self._calib[self.POSITION_TO_MILLIRAD_AXIS_A_OFFSET_COEFF]
 
 
     @positionToMilliRadAxisAOffsetCoeff.setter
@@ -80,7 +80,7 @@ class TipTiltConfiguration():
 
     @property
     def positionToMilliRadAxisBLinearCoeff(self):
-        self._calib[self.POSITION_TO_MILLIRAD_AXIS_B_LINEAR_COEFF]
+        return self._calib[self.POSITION_TO_MILLIRAD_AXIS_B_LINEAR_COEFF]
 
 
     @positionToMilliRadAxisBLinearCoeff.setter
@@ -90,7 +90,7 @@ class TipTiltConfiguration():
 
     @property
     def positionToMilliRadAxisBOffsetCoeff(self):
-        self._calib[self.POSITION_TO_MILLIRAD_AXIS_B_OFFSET_COEFF]
+        return self._calib[self.POSITION_TO_MILLIRAD_AXIS_B_OFFSET_COEFF]
 
 
     @positionToMilliRadAxisBOffsetCoeff.setter
