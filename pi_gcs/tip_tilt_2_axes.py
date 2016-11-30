@@ -1,10 +1,9 @@
 import numpy as np
-from pi_gcs.gcs2 import WaveformGenerator
+from pi_gcs.gcs2 import WaveformGenerator, PIException
 from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
     RecordOption
 
 __version__= "$Id: $"
-
 
 
 class TipTilt2Axis(object):
@@ -76,16 +75,57 @@ class TipTilt2Axis(object):
         return np.all(self._ctrl.getServoControlMode(self.ALL_AXES))
 
 
+    def _positionConversionCoefficients(self, axisName):
+        if axisName == self.AXIS_A:
+            offset= self._cfg.positionToMilliRadAxisAOffsetCoeff
+            linear= self._cfg.positionToMilliRadAxisALinearCoeff
+        elif axisName == self.AXIS_B:
+            offset= self._cfg.positionToMilliRadAxisBOffsetCoeff
+            linear= self._cfg.positionToMilliRadAxisBLinearCoeff
+        else:
+            raise KeyError("unknown axis %s")
+        return offset, linear
+
+
+    def _gcsUnitsToMilliRadOneAxis(self, posInGcsUnits, axisName):
+        offset, linear= self._positionConversionCoefficients(axisName)
+        return linear * posInGcsUnits + offset
+
+
+    def _gcsUnitsToMilliRad(self, positionInGcsUnits):
+        mradA= self._gcsUnitsToMilliRadOneAxis(positionInGcsUnits[0],
+                                               self.AXIS_A)
+        mradB= self._gcsUnitsToMilliRadOneAxis(positionInGcsUnits[1],
+                                               self.AXIS_B)
+        return np.array([mradA, mradB])
+
+
+    def _milliRadToGcsUnitsOneAxis(self, posInMilliRad, axisName):
+        offset, linear= self._positionConversionCoefficients(axisName)
+        return (posInMilliRad - offset) / linear
+
+
+    def _milliRadToGcsUnits(self, positionInMilliRad):
+        posA= self._milliRadToGcsUnitsOneAxis(positionInMilliRad[0],
+                                              self.AXIS_A)
+        posB= self._milliRadToGcsUnitsOneAxis(positionInMilliRad[1],
+                                              self.AXIS_B)
+        return np.array([posA, posB])
+
+
     def getPosition(self):
-        return self._ctrl.getPosition(self.ALL_AXES)
+        return self._gcsUnitsToMilliRad(self._ctrl.getPosition(self.ALL_AXES))
 
 
     def getTargetPosition(self):
-        return self._ctrl.getTargetPosition(self.ALL_AXES)
+        return self._gcsUnitsToMilliRad(
+            self._ctrl.getTargetPosition(self.ALL_AXES))
 
 
-    def setTargetPosition(self, position):
-        return self._ctrl.setTargetPosition(self.ALL_AXES, position)
+    def setTargetPosition(self, positionInMilliRad):
+        return self._ctrl.setTargetPosition(
+            self.ALL_AXES,
+            self._milliRadToGcsUnits(positionInMilliRad))
 
 
     def getVoltages(self):
@@ -106,8 +146,11 @@ class TipTilt2Axis(object):
         timestep= self._ctrl.getServoUpdateTimeInSeconds() * wgtr
 
         lengthInPoints= periodInSec/ timestep
-        amplitudeOfTheSineCurve= 2* radiusInMilliRad
-        offsetOfTheSineCurve= self.getTargetPosition() - radiusInMilliRad
+        peakOfTheSineCurve= self._milliRadToGcsUnits(
+            self.getTargetPosition() + radiusInMilliRad)
+        offsetOfTheSineCurve= self._milliRadToGcsUnits(
+            self.getTargetPosition() - radiusInMilliRad)
+        amplitudeOfTheSineCurve= peakOfTheSineCurve - offsetOfTheSineCurve
         wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
         startPoint= np.array([0, 0.25])* wavelengthOfTheSineCurveInPoints
         curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
@@ -115,15 +158,16 @@ class TipTilt2Axis(object):
         self._ctrl.clearWaveTableData([1, 2, 3])
         self._ctrl.setSinusoidalWaveform(
             1, WaveformGenerator.CLEAR, lengthInPoints,
-            amplitudeOfTheSineCurve, offsetOfTheSineCurve[0],
+            amplitudeOfTheSineCurve[0], offsetOfTheSineCurve[0],
             wavelengthOfTheSineCurveInPoints, startPoint[0], curveCenterPoint)
         self._ctrl.setSinusoidalWaveform(
             2, WaveformGenerator.CLEAR, lengthInPoints,
-            amplitudeOfTheSineCurve, offsetOfTheSineCurve[1],
+            amplitudeOfTheSineCurve[1], offsetOfTheSineCurve[1],
             wavelengthOfTheSineCurveInPoints, startPoint[1], curveCenterPoint)
         self._ctrl.setConnectionOfWaveTableToWaveGenerator([1, 2], [1, 2])
         self._ctrl.setWaveGeneratorStartStopMode([1, 1, 0])
         self._modulationEnabled= True
+
 
     def stopModulation(self):
         self._stopWaveformGenerators()

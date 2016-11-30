@@ -508,6 +508,9 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
                               wavelengthOfTheSineCurveInPoints,
                               startPoint,
                               curveCenterPoint):
+        '''
+        See description of PI_WAV_SIN_P in PI GCS 2.0 DLL doc
+        '''
         assert append in WaveformGenerator.ALL
 
         self._lib.PI_WAV_SIN_P.argtypes= [c_int, c_int, c_int, c_int, c_int,
