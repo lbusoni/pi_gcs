@@ -2,8 +2,7 @@ from ctypes.util import find_library
 import ctypes
 from ctypes import c_int, c_bool, c_char, c_char_p, c_double, c_uint
 import numpy as np
-from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
-    RecordOption
+from pi_gcs.data_recorder_configuration import DataRecorderConfiguration
 from pi_gcs.abstract_gcs2 import AbstractGeneralCommandSet
 
 
@@ -89,7 +88,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         self._port= None
         self._lib= None
         self._id= None
-        self._axes= ctypes.c_char_p("A B C")
+        self._axes= ctypes.c_char_p(b"A B C")
         self._channels= (ctypes.c_int * 3)(1, 2, 3)
 
         self._importLibrary()
@@ -105,7 +104,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
 
     def _errAsString(self, errorCode):
         bufSize= 256
-        s=ctypes.create_string_buffer('\000' * bufSize)
+        s=ctypes.create_string_buffer(b'\000' * bufSize)
 
         ret= self._lib.PI_TranslateError(
             errorCode, s, bufSize)
@@ -176,7 +175,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
 
 
     def _getterReturnString(self, gcsFunction, bufSize):
-        s=ctypes.create_string_buffer('\000', bufSize)
+        s=ctypes.create_string_buffer(b'\000', bufSize)
         self._convertErrorToException(
             gcsFunction(self._id, s, bufSize))
         return s.value
@@ -220,7 +219,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         self._convertErrorToException(
             self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
         while retSize.value != 0:
-            buf= ctypes.create_string_buffer('\000', retSize.value)
+            buf= ctypes.create_string_buffer(b'\000', retSize.value)
             self._convertErrorToException(
                 self._lib.PI_GcsGetAnswer(self._id, buf, retSize.value))
             res+= buf.value
@@ -357,7 +356,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
                                      c_int]
         retValue= CDoubleArray([0.])
         bufSize= 256
-        retString= ctypes.create_string_buffer('\000', bufSize)
+        retString= ctypes.create_string_buffer(b'\000', bufSize)
 
         self._convertErrorToException(
             self._lib.PI_qSPA(
@@ -398,7 +397,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
     def getDataRecorderConfiguration(self):
         nRecorders= self.getNumberOfRecorderTables()
         sourceBufSize= 256
-        source= ctypes.create_string_buffer('\000', sourceBufSize)
+        source= ctypes.create_string_buffer(b'\000', sourceBufSize)
         option= CIntArray(np.zeros(nRecorders, dtype=np.int32))
         table=CIntArray(np.arange(1, nRecorders + 1))
 

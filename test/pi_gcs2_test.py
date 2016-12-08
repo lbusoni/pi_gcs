@@ -40,12 +40,12 @@ class CTypesTest(unittest.TestCase):
 
 
     def testEasy(self):
-        self.assertEqual(12345, self.libc.atoi("12345"))
+        self.assertEqual(12345, self.libc.atoi(b"12345"))
 
 
     def testReturnDouble(self):
         self.libc.atof.restype= ctypes.c_double
-        self.assertEqual(12345.67, self.libc.atof("12345.67"))
+        self.assertEqual(12345.67, self.libc.atof(b"12345.67"))
 
 
     def testPassingIntPerReference(self):
@@ -113,8 +113,8 @@ class CTypesTest(unittest.TestCase):
     def testArgsConstCharPtrResCharPtr(self):
         self.libc.strchr.restype= ctypes.c_char_p
         self.libc.strchr.argtypes= [ctypes.c_char_p, ctypes.c_int]
-        res= self.libc.strchr("hello, world", ord('l'))
-        self.assertEqual("llo, world", res)
+        res= self.libc.strchr(b"hello, world", ord('l'))
+        self.assertEqual(b"llo, world", res)
 
 
     def testUseArgTypes(self):

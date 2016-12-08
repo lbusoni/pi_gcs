@@ -5,10 +5,7 @@ __version__= "$Id: $"
 
 
 
-class AbstractGeneralCommandSet(object):
-    __metaclass__= abc.ABCMeta
-
-
+class AbstractGeneralCommandSet(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def connectTCPIP(self, hostname, port=50000):
         assert False
