@@ -3,7 +3,7 @@
 import unittest
 import numpy as np
 import time
-from pi_gcs.gcs2 import GeneralCommandSet2, ConnectionError, CHANNEL_ONLINE,\
+from pi_gcs.gcs2 import GeneralCommandSet2, PIConnectionError, CHANNEL_ONLINE,\
     CHANNEL_OFFLINE, PIException, WaveformGenerator
 import ctypes
 from ctypes.util import find_library
@@ -148,7 +148,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
 
     def _testRaisesIfItCantConnect(self):
         fake= GeneralCommandSet2()
-        self.assertRaises(ConnectionError,
+        self.assertRaises(PIConnectionError,
                           fake.connectTCPIP, 'foo.bar.com')
 
 

@@ -16,7 +16,7 @@ class PIException(Exception):
     pass
 
 
-class ConnectionError(PIException):
+class PIConnectionError(PIException):
     pass
 
 
@@ -110,7 +110,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
             errorCode, s, bufSize)
         if ret != 1:
             return "Unknown error (%d)" % errorCode
-        return "%s (%d)" % (s.value, errorCode)
+        return "%s (%d)" % (s.value.decode(), errorCode)
 
 
     def _convertErrorToException(self, returnValue, expectedReturn=GCS_TRUE):
@@ -171,14 +171,15 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         assert nCh == len(valueArray)
         gcsFunction.argtypes= [c_int, c_char_p, valueArrayClass]
         self._convertErrorToException(
-            gcsFunction(self._id, axesString, valueArrayClass(valueArray)))
+            gcsFunction(self._id, axesString.encode(),
+                        valueArrayClass(valueArray)))
 
 
     def _getterReturnString(self, gcsFunction, bufSize):
         s=ctypes.create_string_buffer(b'\000', bufSize)
         self._convertErrorToException(
             gcsFunction(self._id, s, bufSize))
-        return s.value
+        return s.value.decode()
 
 
     def _isConnected(self):
@@ -186,10 +187,10 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
 
 
     def connectTCPIP(self, hostname, port=50000):
-        ide= self._lib.PI_ConnectTCPIP(hostname, port)
+        ide= self._lib.PI_ConnectTCPIP(hostname.encode(), port)
         if ide == -1:
             errorId= self._lib.PI_GetError(ide)
-            raise ConnectionError("%s" % self._errAsString(errorId))
+            raise PIConnectionError("%s" % self._errAsString(errorId))
         self._id= ide
         self._hostname= hostname
         self._port= port
@@ -212,7 +213,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         self._lib.PI_GcsCommandset.argtypes= [c_int, c_char_p]
         self._lib.PI_GcsGetAnswer.argtypes= [c_int, c_char_p, c_int]
         self._convertErrorToException(
-            self._lib.PI_GcsCommandset(self._id, commandAsString))
+            self._lib.PI_GcsCommandset(self._id, commandAsString.encode()))
         self._trickToCheckForSyntaxError()
         retSize= c_int()
         res= ''
@@ -222,7 +223,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
             buf= ctypes.create_string_buffer(b'\000', retSize.value)
             self._convertErrorToException(
                 self._lib.PI_GcsGetAnswer(self._id, buf, retSize.value))
-            res+= buf.value
+            res+= buf.value.decode()
             self._convertErrorToException(
                 self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
         return res
@@ -288,7 +289,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         cRet= ctypes.create_string_buffer(0, ctypes.sizeof(cMsg))
         self._convertErrorToException(
             self._lib.PI_qECO(self._id, cMsg, cRet))
-        return cRet.value
+        return cRet.value.decode()
 
 
     def getLowerVoltageLimit(self, channels):
@@ -360,7 +361,8 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
 
         self._convertErrorToException(
             self._lib.PI_qSPA(
-                self._id, str(itemId),
+                self._id,
+                str(itemId).encode(),
                 CUnsignedIntArray([parameterId]),
                 retValue,
                 retString,
@@ -390,7 +392,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
             self._convertErrorToException(
                 self._lib.PI_DRC(self._id,
                                  CIntArray([tableId]),
-                                 source,
+                                 source.encode(),
                                  CIntArray([option])))
 
 
@@ -408,7 +410,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
             self._lib.PI_qDRC(self._id, table, source,
                               option, sourceBufSize, nRecorders))
 
-        sources= [x.strip() for x in source.value.split('\n')]
+        sources= [x.strip() for x in source.value.decode().split('\n')]
         cfg= DataRecorderConfiguration()
         for i in range(nRecorders):
             cfg.setTable(table.toNumpyArray()[i],
