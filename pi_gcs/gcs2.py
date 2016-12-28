@@ -161,7 +161,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         value= valueArrayClass([0]* nCh)
         gcsFunction.argtypes= [c_int, c_char_p, valueArrayClass]
         self._convertErrorToException(
-            gcsFunction(self._id, axesString, value))
+            gcsFunction(self._id, axesString.encode(), value))
         return value.toNumpyArray()
 
 
