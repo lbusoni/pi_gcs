@@ -65,11 +65,11 @@ class FakeGeneralCommandSetTest(unittest.TestCase):
             waveform[startPoint+ curveCenterPoint])
         self.assertEqual(
             offsetOfTheSineCurve + 0.5* amplitudeOfTheSineCurve,
-            waveform[startPoint+ 0.5* curveCenterPoint])
+            waveform[int(startPoint+ 0.5* curveCenterPoint)])
         self.assertEqual(
             offsetOfTheSineCurve + 0.5* amplitudeOfTheSineCurve,
-            waveform[startPoint+ 0.5*
-                     (curveCenterPoint + wavelengthOfTheSineCurveInPoints)])
+            waveform[int(startPoint+ 0.5*
+                     (curveCenterPoint + wavelengthOfTheSineCurveInPoints))])
 
 
     def testTargetPosition(self):
