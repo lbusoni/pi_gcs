@@ -339,6 +339,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
         self._resetE517ToSafe()
 
 
+    @unittest.skip("skipped")
     def testRecorder(self):
         self._resetE517ToSafe()
         print("%s" % self._gcs.getAllDataRecorderOptions())
@@ -374,6 +375,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
         self._resetE517ToSafe()
 
 
+    @unittest.skip("skipped")
     def testWaveGenerator(self):
         self._resetE517ToSafe()
         self.assertEqual(3, self._gcs.getNumberOfWaveGenerators())

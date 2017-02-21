@@ -139,34 +139,73 @@ class TipTilt2Axis(object):
         self._origTargetPosition= centerInMilliRad
         self.stopModulation()
 
-        periodInSec= 1./ frequencyInHz
         assert np.ptp(self._ctrl.getWaveGeneratorTableRate()) == 0, \
             "wave generator table rate must be the same for every table"
         wgtr= self._ctrl.getWaveGeneratorTableRate()[0]
         timestep= self._ctrl.getServoUpdateTimeInSeconds() * wgtr
 
-        lengthInPoints= periodInSec/ timestep
-        peakOfTheSineCurve= self._milliRadToGcsUnits(
-            self.getTargetPosition() + radiusInMilliRad)
-        offsetOfTheSineCurve= self._milliRadToGcsUnits(
-            self.getTargetPosition() - radiusInMilliRad)
-        amplitudeOfTheSineCurve= peakOfTheSineCurve - offsetOfTheSineCurve
-        wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
-        startPoint= np.array([0, 0.25])* wavelengthOfTheSineCurveInPoints
-        curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
+#         periodInSec= 1./ frequencyInHz
+#         lengthInPoints= periodInSec/ timestep
+#         peakOfTheSineCurve= self._milliRadToGcsUnits(
+#             self.getTargetPosition() + radiusInMilliRad)
+#         offsetOfTheSineCurve= self._milliRadToGcsUnits(
+#             self.getTargetPosition() - radiusInMilliRad)
+#         amplitudeOfTheSineCurve= peakOfTheSineCurve - offsetOfTheSineCurve
+#         wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
+#         startPoint= np.array([0, 0.25])* wavelengthOfTheSineCurveInPoints
+#         curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
 
         self._ctrl.clearWaveTableData([1, 2, 3])
-        self._ctrl.setSinusoidalWaveform(
-            1, WaveformGenerator.CLEAR, lengthInPoints,
-            amplitudeOfTheSineCurve[0], offsetOfTheSineCurve[0],
-            wavelengthOfTheSineCurveInPoints, startPoint[0], curveCenterPoint)
-        self._ctrl.setSinusoidalWaveform(
-            2, WaveformGenerator.CLEAR, lengthInPoints,
-            amplitudeOfTheSineCurve[1], offsetOfTheSineCurve[1],
-            wavelengthOfTheSineCurveInPoints, startPoint[1], curveCenterPoint)
+        self._setSinusoidalWaveform(1, timestep, radiusInMilliRad,
+                                    frequencyInHz, 0., centerInMilliRad[0])
+        self._setSinusoidalWaveform(2, timestep, radiusInMilliRad,
+                                    frequencyInHz, np.pi/ 4,
+                                    centerInMilliRad[1])
+#         self._ctrl.setSinusoidalWaveform(
+#             1, WaveformGenerator.CLEAR, lengthInPoints,
+#             amplitudeOfTheSineCurve[0], offsetOfTheSineCurve[0],
+#             wavelengthOfTheSineCurveInPoints, startPoint[0], curveCenterPoint)
+#         self._ctrl.setSinusoidalWaveform(
+#             2, WaveformGenerator.CLEAR, lengthInPoints,
+#             amplitudeOfTheSineCurve[1], offsetOfTheSineCurve[1],
+#             wavelengthOfTheSineCurveInPoints, startPoint[1], curveCenterPoint)
         self._ctrl.setConnectionOfWaveTableToWaveGenerator([1, 2], [1, 2])
         self._ctrl.setWaveGeneratorStartStopMode([1, 1, 0])
         self._modulationEnabled= True
+
+
+    def _getAxisFromWaveTableId(self, waveTableId):
+        if waveTableId == 1:
+            return self.AXIS_A
+        elif waveTableId == 2:
+            return self.AXIS_B
+        else:
+            raise ValueError("Unknown waveTableId %d" % waveTableId)
+
+
+    def _setSinusoidalWaveform(self, waveTableId, timeStepInSec,
+                               amplitudeInMilliRad, frequencyInHz,
+                               phaseInRadians, offsetInMilliRad):
+        axisName= self._getAxisFromWaveTableId(waveTableId)
+        periodInSec= 1./ frequencyInHz
+        wgtr= self._ctrl.getWaveGeneratorTableRate()[0]
+        timestep= self._ctrl.getServoUpdateTimeInSeconds() * wgtr
+
+        lengthInPoints= periodInSec/ timestep
+        peakOfTheSineCurve= self._milliRadToGcsUnitsOneAxis(
+            offsetInMilliRad + amplitudeInMilliRad, axisName)
+        valleyOfTheSineCurve= self._milliRadToGcsUnitsOneAxis(
+            offsetInMilliRad - amplitudeInMilliRad, axisName)
+        amplitudeOfTheSineCurve= peakOfTheSineCurve - valleyOfTheSineCurve
+        wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
+        startPoint= phaseInRadians/ np.pi* wavelengthOfTheSineCurveInPoints
+        curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
+        self._ctrl.setSinusoidalWaveform(
+            waveTableId, WaveformGenerator.CLEAR, lengthInPoints,
+            amplitudeOfTheSineCurve, valleyOfTheSineCurve,
+            wavelengthOfTheSineCurveInPoints, startPoint, curveCenterPoint)
+
+
 
 
     def stopModulation(self):
