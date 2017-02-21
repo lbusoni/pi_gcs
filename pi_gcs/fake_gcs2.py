@@ -258,7 +258,9 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         assert startPoint >= 0
         assert startPoint < lengthInPoints
         assert curveCenterPoint >= 0
-        assert startPoint + curveCenterPoint < lengthInPoints
+        assert startPoint + curveCenterPoint < lengthInPoints, \
+            'startPoint + curveCenterPoint >= lenghtInPoints (%d+%d>=%d)' % (
+                startPoint, curveCenterPoint, lengthInPoints)
 
         ccUp= 0.5* curveCenterPoint
         rampUp= 0.5 * amplitudeOfTheSineCurve* (1 + np.sin(

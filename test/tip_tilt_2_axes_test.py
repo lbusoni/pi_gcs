@@ -77,13 +77,15 @@ class TipTilt2AxisTest(unittest.TestCase):
 
 
     def testStartStopModulation(self):
-        radiusInMilliRad= 12.4
+        radiiInMilliRad= [12.4, 14]
         frequencyInHz= 100.
         centerInMilliRad= [-10, 15]
+        phasesInRadians= [0, np.pi/ 2]
         self._tt.setTargetPosition(centerInMilliRad)
-        self._tt.startModulation(radiusInMilliRad,
-                                 frequencyInHz,
-                                 centerInMilliRad)
+        self._tt.startSinusoidalModulation(radiiInMilliRad,
+                                           frequencyInHz,
+                                           phasesInRadians,
+                                           centerInMilliRad)
         self.assertTrue(
             np.allclose(
                 [1, 1, 0],
@@ -94,6 +96,16 @@ class TipTilt2AxisTest(unittest.TestCase):
         self.assertAlmostEqual(
             wants, got, msg="wants %g, got %g" % (wants, got))
         wants= self._tt._milliRadToGcsUnitsOneAxis(-10 + 12.4, self._tt.AXIS_A)
+        got= np.max(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+
+        waveform= self._ctrl.getWaveform(2)
+        wants= self._tt._milliRadToGcsUnitsOneAxis(15, self._tt.AXIS_B)
+        got= np.mean(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+        wants= self._tt._milliRadToGcsUnitsOneAxis(15 + 14, self._tt.AXIS_B)
         got= np.max(waveform)
         self.assertAlmostEqual(
             wants, got, msg="wants %g, got %g" % (wants, got))

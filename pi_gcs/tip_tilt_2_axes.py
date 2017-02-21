@@ -132,10 +132,11 @@ class TipTilt2Axis(object):
         return self._ctrl.getVoltages(self.ALL_CHANNELS)
 
 
-    def startModulation(self,
-                        radiusInMilliRad,
-                        frequencyInHz,
-                        centerInMilliRad):
+    def startSinusoidalModulation(self,
+                                  radiusInMilliRad,
+                                  frequencyInHz,
+                                  phasesInRadians,
+                                  centerInMilliRad):
         self._origTargetPosition= centerInMilliRad
         self.stopModulation()
 
@@ -156,10 +157,11 @@ class TipTilt2Axis(object):
 #         curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
 
         self._ctrl.clearWaveTableData([1, 2, 3])
-        self._setSinusoidalWaveform(1, timestep, radiusInMilliRad,
-                                    frequencyInHz, 0., centerInMilliRad[0])
-        self._setSinusoidalWaveform(2, timestep, radiusInMilliRad,
-                                    frequencyInHz, np.pi/ 4,
+        self._setSinusoidalWaveform(1, timestep, radiusInMilliRad[0],
+                                    frequencyInHz, phasesInRadians[0],
+                                    centerInMilliRad[0])
+        self._setSinusoidalWaveform(2, timestep, radiusInMilliRad[1],
+                                    frequencyInHz, phasesInRadians[1],
                                     centerInMilliRad[1])
 #         self._ctrl.setSinusoidalWaveform(
 #             1, WaveformGenerator.CLEAR, lengthInPoints,
@@ -198,7 +200,8 @@ class TipTilt2Axis(object):
             offsetInMilliRad - amplitudeInMilliRad, axisName)
         amplitudeOfTheSineCurve= peakOfTheSineCurve - valleyOfTheSineCurve
         wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
-        startPoint= phaseInRadians/ np.pi* wavelengthOfTheSineCurveInPoints
+        startPoint= phaseInRadians/ (2* np.pi) * \
+            wavelengthOfTheSineCurveInPoints
         curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
         self._ctrl.setSinusoidalWaveform(
             waveTableId, WaveformGenerator.CLEAR, lengthInPoints,
