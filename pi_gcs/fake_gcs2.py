@@ -1,6 +1,8 @@
 import numpy as np
 from pi_gcs.abstract_gcs2 import AbstractGeneralCommandSet
 from pi_gcs.gcs2 import WaveformGenerator
+from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
+    RecordOption
 
 
 __version__= "$Id: $"
@@ -23,6 +25,7 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         self._wtr= np.ones(3)
         self.triggerStartRecordingInSyncWithWaveGenerator= 0
         self._waveform= {}
+        self._dataRecorderConfig= self._defaultDataRecorderConfiguration()
 
 
     def _dictToArray(self, dicto, keys):
@@ -177,11 +180,22 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
 
 
     def setDataRecorderConfiguration(self, dataRecorderConfiguration):
-        pass
+        self._dataRecorderConfig= dataRecorderConfiguration
 
 
     def getDataRecorderConfiguration(self):
-        pass
+        return self._dataRecorderConfig
+
+
+    def _defaultDataRecorderConfiguration(self):
+        dataRecorderCfg= DataRecorderConfiguration()
+        dataRecorderCfg.setTable(1, "A", RecordOption.REAL_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(2, "B", RecordOption.REAL_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(3, "A", RecordOption.POSITION_ERROR_OF_AXIS)
+        dataRecorderCfg.setTable(4, "B", RecordOption.POSITION_ERROR_OF_AXIS)
+        dataRecorderCfg.setTable(5, "A", RecordOption.TARGET_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(6, "B", RecordOption.TARGET_POSITION_OF_AXIS)
+        return dataRecorderCfg
 
 
     def getRecordedDataValues(self, howManyPoints, startFromPoint=1):
