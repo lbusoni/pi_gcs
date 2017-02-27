@@ -249,17 +249,26 @@ class TipTilt2Axis(object):
                                  RecordOption.POSITION_ERROR_OF_AXIS,
                                  RecordOption.REAL_POSITION_OF_AXIS]
         cfg= self.getDataRecorderConfiguration()
-        for ids in cfg.getTableIds():
-            source= cfg.getRecordSource(ids)
-            option= cfg.getRecordOption(ids)
+        ids= cfg.getTableIds()
+        for i in np.arange(len(ids)):
+            source= cfg.getRecordSource(ids[i])
+            option= cfg.getRecordOption(ids[i])
             if option in recordOptionsToConvert:
-                ret[ids]= self._gcsUnitsToMilliRadOneAxis(ret[ids], source)
+                ret[i]= self._gcsUnitsToMilliRadOneAxis(ret[i], source)
         return ret
 
 
     def getRecordedData(self, howManyPoints, dataRecorderCfg=None):
+        self._startDataRecorder(dataRecorderCfg)
+        return self._retrieveRecordedData(howManyPoints)
+
+
+    def _startDataRecorder(self, dataRecorderCfg=None):
         self._configureDataRecoders(dataRecorderCfg)
         self._ctrl.startRecordingInSyncWithWaveGenerator()
+
+
+    def _retrieveRecordedData(self, howManyPoints):
         timestep= self._ctrl.getServoUpdateTimeInSeconds()
         rtr= self._ctrl.getRecordTableRate()
         timeValues= np.arange(howManyPoints) * timestep * rtr
