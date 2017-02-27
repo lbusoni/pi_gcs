@@ -312,3 +312,11 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
     def getDataRecorderTriggerSource(self):
         pass
 
+
+    def startStepAndResponseMeasurement(self, axisString, amplitude):
+        pass
+
+
+    def startImpulseAndResponseMeasurement(self, axisString, amplitude):
+        pass
+

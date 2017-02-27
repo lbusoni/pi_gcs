@@ -593,3 +593,23 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
 
     def getDataRecorderTriggerSource(self):
         pass
+
+
+
+    def startStepAndResponseMeasurement(self, axisString, amplitude):
+        self._lib.PI_STE.argtypes= [c_int, c_char_p, c_double]
+
+        self._convertErrorToException(
+            self._lib.PI_STE(self._id,
+                             axisString.encode(),
+                             amplitude))
+
+
+    def startImpulseAndResponseMeasurement(self, axisString, amplitude):
+        self._lib.PI_IMP.argtypes= [c_int, c_char_p, c_double]
+
+        self._convertErrorToException(
+            self._lib.PI_IMP(self._id,
+                             axisString.encode(),
+                             amplitude))
+

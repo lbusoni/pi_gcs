@@ -258,3 +258,13 @@ class AbstractGeneralCommandSet(object, metaclass=abc.ABCMeta):
         assert False
 
 
+    @abc.abstractmethod
+    def startStepAndResponseMeasurement(self, axisString, amplitude):
+        assert False
+
+
+    @abc.abstractmethod
+    def startImpulseAndResponseMeasurement(self, axisString, amplitude):
+        assert False
+
+

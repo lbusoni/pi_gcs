@@ -13,7 +13,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 setup(
     name='pi_gcs',
 
-    version='0.1',
+    version='0.3',
 
     description='Unofficial python wrapper for Physik Instrumente General Command Set API',
     long_description=long_description,
