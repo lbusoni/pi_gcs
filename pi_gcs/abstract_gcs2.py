@@ -215,6 +215,15 @@ class AbstractGeneralCommandSet(object, metaclass=abc.ABCMeta):
         assert False
 
 
+    @abc.abstractmethod
+    def setUserDefinedWaveform(self,
+                               waveTableId,
+                               offsetOfFirstPointInWaveTable,
+                               numberOfWavePoints,
+                               appendMode,
+                               wavePointsArray):
+        assert False
+
 
     @abc.abstractmethod
     def setRecordTableRate(self, recordTableRateInServoLoopCycles=1):

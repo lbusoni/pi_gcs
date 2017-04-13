@@ -81,6 +81,23 @@ class FakeGeneralCommandSetTest(unittest.TestCase):
                                     self._ctrl.getTargetPosition('P F')))
 
 
+
+    def testUserDefinedWaveform(self):
+        waveTableId= 1
+        numberOfWavePoints= 102
+        appendMode= WaveformGenerator.CLEAR
+        wavePointsArray= np.linspace(40, 50, numberOfWavePoints)
+        self._ctrl.setUserDefinedWaveform(waveTableId,
+                                          1,
+                                          numberOfWavePoints, appendMode,
+                                          wavePointsArray)
+
+        waveform= self._ctrl.getWaveform(waveTableId)
+        self.assertEqual(numberOfWavePoints, len(waveform))
+        self.assertEqual(40, waveform[0])
+        self.assertEqual(50, waveform[-1])
+
+
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

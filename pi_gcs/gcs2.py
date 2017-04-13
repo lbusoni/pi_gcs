@@ -528,6 +528,26 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
                                    int(lengthInPoints)))
 
 
+    def setUserDefinedWaveform(self,
+                               waveTableId,
+                               offsetOfFirstPointInWaveTable,
+                               numberOfWavePoints,
+                               appendMode,
+                               wavePointsArray):
+        '''
+        See description of PI_WAV_PNT in PI GCS 2.0 DLL doc
+        '''
+        assert appendMode in WaveformGenerator.ALL
+        self._lib.PI_WAV_PNT.argtypes= [c_int, c_int, c_int, c_int, c_int,
+                                        CDoubleArray]
+        self._convertErrorToException(
+            self._lib.PI_WAV_PNT(self._id,
+                                 int(waveTableId),
+                                 int(offsetOfFirstPointInWaveTable),
+                                 int(numberOfWavePoints),
+                                 int(appendMode),
+                                 wavePointsArray))
+
 
     def setRecordTableRate(self, recordTableRateInServoLoopCycles=1):
         self._lib.PI_RTR.argtypes= [c_int, c_int]

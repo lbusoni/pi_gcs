@@ -276,6 +276,16 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         self._waveform[waveTableId]= waveform
 
 
+    def setUserDefinedWaveform(self,
+                               waveTableId,
+                               offsetOfFirstPointInWaveTable,
+                               numberOfWavePoints,
+                               appendMode,
+                               wavePointsArray):
+        assert appendMode == WaveformGenerator.CLEAR, 'only CLEAR implemented'
+        self._waveform[waveTableId]= wavePointsArray
+
+
     def getWaveform(self, waveTableId):
         return self._waveform[waveTableId]
 

@@ -415,5 +415,35 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
         self._resetE517ToSafe()
 
 
+
+    def testUserDefinedWaveGenerator(self):
+        self._resetE517ToSafe()
+        self.assertEqual(3, self._gcs.getNumberOfWaveGenerators())
+
+        self._gcs.setWaveGeneratorStartStopMode([0, 0, 0])
+        res= self._gcs.getWaveGeneratorStartStopMode()
+        self.assertEqual(0, res[0])
+        self.assertEqual(0, res[1])
+        self.assertEqual(0, res[2])
+
+        lengthInPoints= 250
+        wavePointsArray= np.arange(40, 50, (50- 40)/lengthInPoints)
+        self._gcs.setUserDefinedWaveform(
+            1, 1, lengthInPoints, WaveformGenerator.CLEAR,
+            wavePointsArray)
+
+        self._gcs.setConnectionOfWaveTableToWaveGenerator([1, 2, 3], [1, 2, 3])
+
+        self._gcs.setWaveGeneratorStartStopMode([1, 0, 0])
+        res= self._gcs.getWaveGeneratorStartStopMode()
+        self.assertEqual(1, res[0])
+        self.assertEqual(0, res[1])
+        self.assertEqual(0, res[2])
+
+        self._gcs.setWaveGeneratorStartStopMode([0, 0, 0])
+        self._gcs.clearWaveTableData([1, 2, 3])
+        self._resetE517ToSafe()
+
+
 if __name__ == "__main__":
     unittest.main()
