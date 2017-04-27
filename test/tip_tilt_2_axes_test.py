@@ -76,7 +76,7 @@ class TipTilt2AxisTest(unittest.TestCase):
         plt.savefig(filename)
 
 
-    def testStartStopModulation(self):
+    def testStartStopSinusoidalModulation(self):
         radiiInMilliRad= [12.4, 14]
         frequencyInHz= 100.
         centerInMilliRad= [-10, 15]
@@ -116,6 +116,9 @@ class TipTilt2AxisTest(unittest.TestCase):
 
 
     def testRecordingData(self):
+        self._tt.startFreeformModulation(np.arange(10),
+                                         np.arange(10))
+
         howManySamples= 100
         nRecorderTables= self._ctrl.getNumberOfRecorderTables()
         cntr= self._ctrl.triggerStartRecordingInSyncWithWaveGenerator
@@ -146,6 +149,47 @@ class TipTilt2AxisTest(unittest.TestCase):
 
         self.assertEqual(wantA, mRadA, "wanted %s got %s" % (wantA, mRadA))
         self.assertEqual(wantB, mRadB, "wanted %s got %s" % (wantB, mRadB))
+
+
+
+    def testStartStopFreeformModulation(self):
+        centerInMilliRad= [-10, 15]
+        nPoints= 1000
+
+        axisATrajectoryInMilliRad= np.linspace(-10, 2, num=nPoints)
+        axisBTrajectoryInMilliRad= np.linspace(15, 5, num=nPoints)
+        self._tt.setTargetPosition(centerInMilliRad)
+        self._tt.startFreeformModulation(axisATrajectoryInMilliRad,
+                                         axisBTrajectoryInMilliRad)
+
+        self.assertTrue(
+            np.allclose(
+                [1, 1, 0],
+                self._ctrl.getWaveGeneratorStartStopMode()))
+        waveform= self._ctrl.getWaveform(1)
+        wants= self._tt._milliRadToGcsUnitsOneAxis(-4, self._tt.AXIS_A)
+        got= np.mean(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+        wants= self._tt._milliRadToGcsUnitsOneAxis(2, self._tt.AXIS_A)
+        got= np.max(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+
+        waveform= self._ctrl.getWaveform(2)
+        wants= self._tt._milliRadToGcsUnitsOneAxis(10, self._tt.AXIS_B)
+        got= np.mean(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+        wants= self._tt._milliRadToGcsUnitsOneAxis(15, self._tt.AXIS_B)
+        got= np.max(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+
+        self._tt.stopModulation()
+        self.assertTrue(
+            np.allclose(centerInMilliRad, self._tt.getTargetPosition()))
+
 
 if __name__ == "__main__":
     unittest.main()

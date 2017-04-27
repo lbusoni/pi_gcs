@@ -1,12 +1,14 @@
 import numpy as np
-from pi_gcs.gcs2 import WaveformGenerator, PIException
+from pi_gcs.gcs2 import WaveformGenerator
 from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
     RecordOption
+from pi_gcs.abstract_tip_tilt_2_axes import AbstractTipTilt2Axis
+from pygo.decorator import override
 
 __version__= "$Id: $"
 
 
-class TipTilt2Axis(object):
+class TipTilt2Axis(AbstractTipTilt2Axis):
 
     AXIS_A= "A"
     AXIS_B= "B"
@@ -19,6 +21,7 @@ class TipTilt2Axis(object):
 
         self._origTargetPosition= None
         self._modulationEnabled= False
+        self._recordedDataTimeStep= None
 
 
 
@@ -63,14 +66,17 @@ class TipTilt2Axis(object):
         self._ctrl.setOpenLoopAxisValue(pivotAxis, self._cfg.pivotValue)
 
 
+    @override
     def enableControlLoop(self):
         self._ctrl.setServoControlMode(self.ALL_AXES, [True, True])
 
 
+    @override
     def disableControlLoop(self):
         self._ctrl.setServoControlMode(self.ALL_AXES, [False, False])
 
 
+    @override
     def isControlLoopEnabled(self):
         return np.all(self._ctrl.getServoControlMode(self.ALL_AXES))
 
@@ -113,25 +119,30 @@ class TipTilt2Axis(object):
         return np.array([posA, posB])
 
 
+    @override
     def getPosition(self):
         return self._gcsUnitsToMilliRad(self._ctrl.getPosition(self.ALL_AXES))
 
 
+    @override
     def getTargetPosition(self):
         return self._gcsUnitsToMilliRad(
             self._ctrl.getTargetPosition(self.ALL_AXES))
 
 
+    @override
     def setTargetPosition(self, positionInMilliRad):
         return self._ctrl.setTargetPosition(
             self.ALL_AXES,
             self._milliRadToGcsUnits(positionInMilliRad))
 
 
+    @override
     def getVoltages(self):
         return self._ctrl.getVoltages(self.ALL_CHANNELS)
 
 
+    @override
     def startSinusoidalModulation(self,
                                   radiusInMilliRad,
                                   frequencyInHz,
@@ -211,6 +222,7 @@ class TipTilt2Axis(object):
 
 
 
+    @override
     def stopModulation(self):
         self._stopWaveformGenerators()
         self._modulationEnabled= False
@@ -218,6 +230,7 @@ class TipTilt2Axis(object):
             self.setTargetPosition(self._origTargetPosition)
 
 
+    @override
     def isModulationEnabled(self):
         return self._modulationEnabled
 
@@ -239,6 +252,7 @@ class TipTilt2Axis(object):
         self._ctrl.setDataRecorderConfiguration(dataRecorderCfg)
 
 
+    @override
     def getDataRecorderConfiguration(self):
         return self._ctrl.getDataRecorderConfiguration()
 
@@ -258,6 +272,7 @@ class TipTilt2Axis(object):
         return ret
 
 
+    @override
     def getRecordedData(self, howManyPoints, dataRecorderCfg=None):
         self._startDataRecorder(dataRecorderCfg)
         return self._retrieveRecordedData(howManyPoints)
@@ -268,15 +283,23 @@ class TipTilt2Axis(object):
         self._ctrl.startRecordingInSyncWithWaveGenerator()
 
 
+    @override
+    def getRecordedDataTimeStep(self):
+        if self._recordedDataTimeStep is None:
+            timestep= self._ctrl.getServoUpdateTimeInSeconds()
+            rtr= self._ctrl.getRecordTableRate()
+            self._recordedDataTimeStep= timestep * rtr
+        return self._recordedDataTimeStep
+
+
     def _retrieveRecordedData(self, howManyPoints):
-        timestep= self._ctrl.getServoUpdateTimeInSeconds()
-        rtr= self._ctrl.getRecordTableRate()
-        timeValues= np.arange(howManyPoints) * timestep * rtr
+        timeValues= np.arange(howManyPoints) * self.getRecordedDataTimeStep()
         recDataGcs= self._ctrl.getRecordedDataValues(howManyPoints, 1)
         recDataMilliRad= self._convertRecordedDataToMilliRad(recDataGcs)
         return np.vstack((timeValues, recDataMilliRad))
 
 
+    @override
     def status(self):
         status={}
         status['POSITION']= self.getPosition()
@@ -285,3 +308,30 @@ class TipTilt2Axis(object):
         status['CONTROL_LOOP_CLOSED']= self.isControlLoopEnabled()
         status['OVERFLOW']= self._ctrl.getOverflowState(self.ALL_AXES)
         return status
+
+
+    def _setUserDefinedWaveform(self, tableId, axisTrajectoryInMilliRad):
+        axisName= self._getAxisFromWaveTableId(tableId)
+        self._ctrl.setUserDefinedWaveform(
+            tableId,
+            1,
+            len(axisTrajectoryInMilliRad),
+            WaveformGenerator.CLEAR,
+            self._milliRadToGcsUnitsOneAxis(
+                axisTrajectoryInMilliRad,
+                axisName))
+
+
+    @override
+    def startFreeformModulation(self, axisATrajectory, axisBTrajectory):
+        self.stopModulation()
+
+        assert np.ptp(self._ctrl.getWaveGeneratorTableRate()) == 0, \
+            "wave generator table rate must be the same for every table"
+
+        self._ctrl.clearWaveTableData([1, 2, 3])
+        self._setUserDefinedWaveform(1, axisATrajectory)
+        self._setUserDefinedWaveform(2, axisBTrajectory)
+        self._ctrl.setConnectionOfWaveTableToWaveGenerator([1, 2], [1, 2])
+        self._ctrl.setWaveGeneratorStartStopMode([1, 1, 0])
+        self._modulationEnabled= True

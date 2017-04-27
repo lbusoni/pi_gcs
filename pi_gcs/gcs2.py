@@ -546,7 +546,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
                                  int(offsetOfFirstPointInWaveTable),
                                  int(numberOfWavePoints),
                                  int(appendMode),
-                                 wavePointsArray))
+                                 CDoubleArray(wavePointsArray)))
 
 
     def setRecordTableRate(self, recordTableRateInServoLoopCycles=1):

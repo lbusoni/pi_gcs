@@ -198,10 +198,18 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         return dataRecorderCfg
 
 
+    def _repeatVectorTo(self, vector, nPoints):
+        return np.tile(vector, nPoints // len(vector) + 1)[0: nPoints]
+
+
     def getRecordedDataValues(self, howManyPoints, startFromPoint=1):
         nRecorders= self.getNumberOfRecorderTables()
-        return np.arange(howManyPoints * nRecorders).\
-            reshape((nRecorders, howManyPoints))
+        retArray=np.zeros((nRecorders, howManyPoints))
+        retArray[0]= self._repeatVectorTo(self._waveform[1], howManyPoints)
+        retArray[1]= self._repeatVectorTo(self._waveform[2], howManyPoints)
+        retArray[4]= self._repeatVectorTo(self._waveform[1], howManyPoints)
+        retArray[5]= self._repeatVectorTo(self._waveform[2], howManyPoints)
+        return retArray
 
 
     def startRecordingInSyncWithWaveGenerator(self):
