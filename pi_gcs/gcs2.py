@@ -559,13 +559,11 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         rtr= c_int()
         self._convertErrorToException(
             self._lib.PI_qRTR(self._id, ctypes.byref(rtr)))
-        return rtr
+        return rtr.value
 
 
     def getServoUpdateTimeInSeconds(self):
-        return self.getVolatileMemoryParameters(1, 0x0E000200)
-
-
+        return float(self.getVolatileMemoryParameters(1, 0x0E000200))
 
 
     def setWaveGeneratorTableRate(self,

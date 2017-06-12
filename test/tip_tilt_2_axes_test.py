@@ -191,5 +191,10 @@ class TipTilt2AxisTest(unittest.TestCase):
             np.allclose(centerInMilliRad, self._tt.getTargetPosition()))
 
 
+    def testGetRecordedDataTimeStep(self):
+        ts= self._tt.getRecordedDataTimeStep()
+        self.assertEqual(40e-6, ts)
+
+
 if __name__ == "__main__":
     unittest.main()
