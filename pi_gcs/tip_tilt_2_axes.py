@@ -335,3 +335,14 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         self._ctrl.setConnectionOfWaveTableToWaveGenerator([1, 2], [1, 2])
         self._ctrl.setWaveGeneratorStartStopMode([1, 1, 0])
         self._modulationEnabled= True
+
+
+    @override
+    def setOpenLoopValue(self, openLoopValue):
+        return self._ctrl.setOpenLoopAxisValue(
+            self.ALL_AXES, openLoopValue)
+
+
+    @override
+    def getOpenLoopValue(self):
+        return self._ctrl.getOpenLoopAxisValue(self.ALL_AXES)

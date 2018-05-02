@@ -1,6 +1,6 @@
 import numpy as np
 from pi_gcs.abstract_gcs2 import AbstractGeneralCommandSet
-from pi_gcs.gcs2 import WaveformGenerator
+from pi_gcs.gcs2 import WaveformGenerator, PIException
 from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
     RecordOption
 
@@ -144,6 +144,8 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
 
 
     def setOpenLoopAxisValue(self, axesString, amplitudeInVolt):
+        if np.any(self.getServoControlMode(axesString)):
+            raise PIException("Open-loop motion attempted when servo ON (303)")
         axes= [x.strip() for x in axesString.split(' ')]
         self._arrayToDict(self._openLoopAxisValue, axes, amplitudeInVolt)
 

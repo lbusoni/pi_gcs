@@ -3,6 +3,7 @@ import numpy as np
 from pi_gcs.tip_tilt_2_axes import TipTilt2Axis
 from pi_gcs.fake_gcs2 import FakeGeneralCommandSet
 from pi_gcs.tip_tilt_configuration import TipTiltConfiguration
+from pi_gcs.gcs2 import PIException
 
 
 class TipTilt2AxisTest(unittest.TestCase):
@@ -194,6 +195,21 @@ class TipTilt2AxisTest(unittest.TestCase):
     def testGetRecordedDataTimeStep(self):
         ts= self._tt.getRecordedDataTimeStep()
         self.assertEqual(40e-6, ts)
+
+
+    def testSetOpenLoopValue(self):
+        self._tt.stopModulation()
+        self._tt.disableControlLoop()
+        self._tt.setOpenLoopValue([50, 60])
+        self.assertTrue(
+            np.allclose([50, 60], self._tt.getOpenLoopValue()))
+
+
+    def testSetOpenLoopValueRaisesIfInClosedLoop(self):
+        self._tt.stopModulation()
+        self._tt.enableControlLoop()
+        self.assertRaises(PIException, self._tt.setOpenLoopValue, [50, 60])
+
 
 
 if __name__ == "__main__":

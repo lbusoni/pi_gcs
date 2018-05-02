@@ -1,6 +1,7 @@
 import numpy as np
 from pi_gcs.abstract_tip_tilt_2_axes import AbstractTipTilt2Axis
 from pygo.decorator import override
+from pi_gcs.gcs2 import PIException
 
 
 __version__= "$Id: $"
@@ -17,6 +18,7 @@ class FakeTipTilt2Axis(AbstractTipTilt2Axis):
         self._recordedDataTimeStep= 40e-6
         self._axisBTrajectory= None
         self._axisBTrajectory= None
+        self._openLoopValue= None
 
 
     @override
@@ -134,4 +136,13 @@ class FakeTipTilt2Axis(AbstractTipTilt2Axis):
         self._modulationEnabled= True
 
 
+    @override
+    def setOpenLoopValue(self, valueInPercentage):
+        if self.isControlLoopEnabled():
+            raise PIException("Open-loop motion attempted when servo ON (303)")
+        self._openLoopValue= valueInPercentage
 
+
+    @override
+    def getOpenLoopValue(self):
+        return self._openLoopValue

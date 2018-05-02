@@ -65,3 +65,11 @@ class AbstractTipTilt2Axis(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def startFreeformModulation(self, axisATrajectory, axisBTrajectory):
         assert False
+
+    @abc.abstractmethod
+    def getOpenLoopValue(self):
+        assert False
+
+    @abc.abstractmethod
+    def setOpenLoopValue(self):
+        assert False
