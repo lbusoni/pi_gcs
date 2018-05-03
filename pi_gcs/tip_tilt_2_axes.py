@@ -25,7 +25,7 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
 
 
 
-    def setUp(self):
+    def setUp(self, enableControlLoop=True):
         self._connectController()
         self._checkNumberOfChannels()
         self._enableRemoteControlMode()
@@ -33,7 +33,8 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         self._setVoltageLimits()
         self.disableControlLoop()
         self._configure3rdAxisAsPivot()
-        self.enableControlLoop()
+        if enableControlLoop:
+            self.enableControlLoop()
 
 
     def _connectController(self):
