@@ -123,6 +123,7 @@ class CTypesTest(unittest.TestCase):
         self.assertEqual(3, self.libm.floor(3.3))
 
 
+@unittest.skip('need real hw')
 class GeneralCommandSet2TestWithE517(unittest.TestCase):
 
     def setUp(self):

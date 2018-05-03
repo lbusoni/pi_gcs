@@ -1,11 +1,12 @@
 import abc
+from six import with_metaclass
 
 
 __version__= "$Id: $"
 
 
 
-class AbstractGeneralCommandSet(object, metaclass=abc.ABCMeta):
+class AbstractGeneralCommandSet(with_metaclass(abc.ABCMeta, object)):
     @abc.abstractmethod
     def connectTCPIP(self, hostname, port=50000):
         assert False

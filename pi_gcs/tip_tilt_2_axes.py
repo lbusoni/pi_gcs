@@ -3,7 +3,6 @@ from pi_gcs.gcs2 import WaveformGenerator
 from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
     RecordOption
 from pi_gcs.abstract_tip_tilt_2_axes import AbstractTipTilt2Axis
-from pygo.decorator import override
 
 __version__= "$Id: $"
 
@@ -67,17 +66,14 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         self._ctrl.setOpenLoopAxisValue(pivotAxis, self._cfg.pivotValue)
 
 
-    @override
     def enableControlLoop(self):
         self._ctrl.setServoControlMode(self.ALL_AXES, [True, True])
 
 
-    @override
     def disableControlLoop(self):
         self._ctrl.setServoControlMode(self.ALL_AXES, [False, False])
 
 
-    @override
     def isControlLoopEnabled(self):
         return np.all(self._ctrl.getServoControlMode(self.ALL_AXES))
 
@@ -120,30 +116,25 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         return np.array([posA, posB])
 
 
-    @override
     def getPosition(self):
         return self._gcsUnitsToMilliRad(self._ctrl.getPosition(self.ALL_AXES))
 
 
-    @override
     def getTargetPosition(self):
         return self._gcsUnitsToMilliRad(
             self._ctrl.getTargetPosition(self.ALL_AXES))
 
 
-    @override
     def setTargetPosition(self, positionInMilliRad):
         return self._ctrl.setTargetPosition(
             self.ALL_AXES,
             self._milliRadToGcsUnits(positionInMilliRad))
 
 
-    @override
     def getVoltages(self):
         return self._ctrl.getVoltages(self.ALL_CHANNELS)
 
 
-    @override
     def startSinusoidalModulation(self,
                                   radiusInMilliRad,
                                   frequencyInHz,
@@ -223,7 +214,6 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
 
 
 
-    @override
     def stopModulation(self):
         self._stopWaveformGenerators()
         self._modulationEnabled= False
@@ -231,7 +221,6 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
             self.setTargetPosition(self._origTargetPosition)
 
 
-    @override
     def isModulationEnabled(self):
         return self._modulationEnabled
 
@@ -253,7 +242,6 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         self._ctrl.setDataRecorderConfiguration(dataRecorderCfg)
 
 
-    @override
     def getDataRecorderConfiguration(self):
         return self._ctrl.getDataRecorderConfiguration()
 
@@ -273,7 +261,6 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         return ret
 
 
-    @override
     def getRecordedData(self, howManyPoints, dataRecorderCfg=None):
         self._startDataRecorder(dataRecorderCfg)
         return self._retrieveRecordedData(howManyPoints)
@@ -284,7 +271,6 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         self._ctrl.startRecordingInSyncWithWaveGenerator()
 
 
-    @override
     def getRecordedDataTimeStep(self):
         if self._recordedDataTimeStep is None:
             timestep= self._ctrl.getServoUpdateTimeInSeconds()
@@ -300,7 +286,6 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         return np.vstack((timeValues, recDataMilliRad))
 
 
-    @override
     def status(self):
         status={}
         status['POSITION']= self.getPosition()
@@ -323,7 +308,6 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
                 axisName))
 
 
-    @override
     def startFreeformModulation(self, axisATrajectory, axisBTrajectory):
         self.stopModulation()
 
@@ -338,12 +322,10 @@ class TipTilt2Axis(AbstractTipTilt2Axis):
         self._modulationEnabled= True
 
 
-    @override
     def setOpenLoopValue(self, openLoopValue):
         return self._ctrl.setOpenLoopAxisValue(
             self.ALL_AXES, openLoopValue)
 
 
-    @override
     def getOpenLoopValue(self):
         return self._ctrl.getOpenLoopAxisValue(self.ALL_AXES)

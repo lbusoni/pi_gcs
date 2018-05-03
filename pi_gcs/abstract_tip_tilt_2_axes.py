@@ -1,9 +1,10 @@
 import abc
+from six import with_metaclass
 
 __version__= "$Id: $"
 
 
-class AbstractTipTilt2Axis(object, metaclass=abc.ABCMeta):
+class AbstractTipTilt2Axis(with_metaclass(abc.ABCMeta, object)):
 
 
     @abc.abstractmethod
