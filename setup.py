@@ -1,50 +1,83 @@
-# Always prefer setuptools over distutils
-from setuptools import setup, find_packages
-# To use a consistent encoding
-from codecs import open
-from os import path
+import os
+import sys
+from shutil import rmtree
+from setuptools import setup, Command
 
-here = path.abspath(path.dirname(__file__))
 
-# Get the long description from the README file
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
-    long_description = f.read()
+NAME = 'pi_gcs'
+DESCRIPTION = 'Unofficial python wrapper for Physik Instrumente General Command Set API'
+URL = 'https://github.com/lbusoni/pi_gcs'
+EMAIL = 'lorenzo.busoni@inaf.it'
+AUTHOR = 'Lorenzo Busoni'
+LICENSE= 'MIT'
+KEYWORDS= 'PI, GCS2, GCS, plico, Physik Instrument, piezo, laboratory, instrumentation control',
 
-setup(
-    name='pi_gcs',
 
-    version='0.6',
+here = os.path.abspath(os.path.dirname(__file__))
 
-    description='Unofficial python wrapper for Physik Instrumente General Command Set API',
-    long_description=long_description,
+# Load the package's __version__.py module as a dictionary.
+about = {}
+with open(os.path.join(here, NAME, '__version__.py')) as f:
+    exec(f.read(), about)
 
-    # The project's main homepage.
-    url='https://github.com/lbusoni/pi_gcs',
 
-    # Author details
-    author='Lorenzo Busoni',
-    author_email='lbusoni@gmail.com',
+class UploadCommand(Command):
+    """Support setup.py upload."""
 
-    # Choose your license
-    license='MIT',
+    description = 'Build and publish the package.'
+    user_options = []
 
-    # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
-    classifiers=[
-        'Development Status :: 3 - Alpha',
+    @staticmethod
+    def status(s):
+        """Prints things in bold."""
+        print('\033[1m{0}\033[0m'.format(s))
 
-        'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
+    def initialize_options(self):
+        pass
 
-        'License :: OSI Approved :: MIT License',
+    def finalize_options(self):
+        pass
 
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-    ],
+    def run(self):
+        try:
+            self.status('Removing previous builds…')
+            rmtree(os.path.join(here, 'dist'))
+        except OSError:
+            pass
 
-    # What does your project relate to?
-    keywords='PI GCS2 GCS',
+        self.status('Building Source and Wheel (universal) distribution…')
+        os.system('{0} setup.py sdist bdist_wheel --universal'.format(sys.executable))
 
-    #packages=find_packages(exclude=['test']),
-    packages=['pi_gcs'],
-    test_suite='test',
-)
+        self.status('Uploading the package to PyPI via Twine…')
+        os.system('twine upload dist/*')
+
+        self.status('Pushing git tags…')
+        os.system('git tag v{0}'.format(about['__version__']))
+        os.system('git push --tags')
+
+        sys.exit()
+
+
+setup(name=NAME,
+      description=DESCRIPTION,
+      version=about['__version__'],
+      classifiers=['Development Status :: 4 - Beta',
+                   'Operating System :: POSIX :: Linux',
+                   'Intended Audience :: Developers',
+                   'Topic :: Software Development :: Build Tools',
+                   'Programming Language :: Python :: 3.5',
+                   'Programming Language :: Python :: 3.6',
+                   ],
+      long_description=open('README.md').read(),
+      url=URL,
+      author_email=EMAIL,
+      author=AUTHOR,
+      license=LICENSE,
+      keywords=KEYWORDS,
+      packages=['pi_gcs'],
+      test_suite='test',
+      cmdclass={'upload': UploadCommand, },
+      )
+
+
+
