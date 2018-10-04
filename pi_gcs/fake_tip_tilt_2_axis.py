@@ -1,10 +1,7 @@
 import numpy as np
 from pi_gcs.abstract_tip_tilt_2_axes import AbstractTipTilt2Axis
-from pygo.decorator import override
 from pi_gcs.gcs2 import PIException
-
-
-__version__= "$Id: $"
+from pi_gcs.decorator import override
 
 
 class FakeTipTilt2Axis(AbstractTipTilt2Axis):
