@@ -3,6 +3,7 @@ import numpy as np
 from pi_gcs.tip_tilt_2_axes import TipTilt2Axis
 from pi_gcs.fake_gcs2 import FakeGeneralCommandSet
 from pi_gcs.tip_tilt_configuration import TipTiltConfiguration
+from pi_gcs.gcs2 import PIException
 
 
 class TipTilt2AxisTest(unittest.TestCase):
@@ -76,14 +77,16 @@ class TipTilt2AxisTest(unittest.TestCase):
         plt.savefig(filename)
 
 
-    def testStartStopModulation(self):
-        radiusInMilliRad= 12.4
+    def testStartStopSinusoidalModulation(self):
+        radiiInMilliRad= [12.4, 14]
         frequencyInHz= 100.
         centerInMilliRad= [-10, 15]
+        phasesInRadians= [0, np.pi/ 2]
         self._tt.setTargetPosition(centerInMilliRad)
-        self._tt.startModulation(radiusInMilliRad,
-                                 frequencyInHz,
-                                 centerInMilliRad)
+        self._tt.startSinusoidalModulation(radiiInMilliRad,
+                                           frequencyInHz,
+                                           phasesInRadians,
+                                           centerInMilliRad)
         self.assertTrue(
             np.allclose(
                 [1, 1, 0],
@@ -98,12 +101,25 @@ class TipTilt2AxisTest(unittest.TestCase):
         self.assertAlmostEqual(
             wants, got, msg="wants %g, got %g" % (wants, got))
 
+        waveform= self._ctrl.getWaveform(2)
+        wants= self._tt._milliRadToGcsUnitsOneAxis(15, self._tt.AXIS_B)
+        got= np.mean(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+        wants= self._tt._milliRadToGcsUnitsOneAxis(15 + 14, self._tt.AXIS_B)
+        got= np.max(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+
         self._tt.stopModulation()
         self.assertTrue(
             np.allclose(centerInMilliRad, self._tt.getTargetPosition()))
 
 
     def testRecordingData(self):
+        self._tt.startFreeformModulation(np.arange(10),
+                                         np.arange(10))
+
         howManySamples= 100
         nRecorderTables= self._ctrl.getNumberOfRecorderTables()
         cntr= self._ctrl.triggerStartRecordingInSyncWithWaveGenerator
@@ -134,6 +150,67 @@ class TipTilt2AxisTest(unittest.TestCase):
 
         self.assertEqual(wantA, mRadA, "wanted %s got %s" % (wantA, mRadA))
         self.assertEqual(wantB, mRadB, "wanted %s got %s" % (wantB, mRadB))
+
+
+
+    def testStartStopFreeformModulation(self):
+        centerInMilliRad= [-10, 15]
+        nPoints= 1000
+
+        axisATrajectoryInMilliRad= np.linspace(-10, 2, num=nPoints)
+        axisBTrajectoryInMilliRad= np.linspace(15, 5, num=nPoints)
+        self._tt.setTargetPosition(centerInMilliRad)
+        self._tt.startFreeformModulation(axisATrajectoryInMilliRad,
+                                         axisBTrajectoryInMilliRad)
+
+        self.assertTrue(
+            np.allclose(
+                [1, 1, 0],
+                self._ctrl.getWaveGeneratorStartStopMode()))
+        waveform= self._ctrl.getWaveform(1)
+        wants= self._tt._milliRadToGcsUnitsOneAxis(-4, self._tt.AXIS_A)
+        got= np.mean(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+        wants= self._tt._milliRadToGcsUnitsOneAxis(2, self._tt.AXIS_A)
+        got= np.max(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+
+        waveform= self._ctrl.getWaveform(2)
+        wants= self._tt._milliRadToGcsUnitsOneAxis(10, self._tt.AXIS_B)
+        got= np.mean(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+        wants= self._tt._milliRadToGcsUnitsOneAxis(15, self._tt.AXIS_B)
+        got= np.max(waveform)
+        self.assertAlmostEqual(
+            wants, got, msg="wants %g, got %g" % (wants, got))
+
+        self._tt.stopModulation()
+        self.assertTrue(
+            np.allclose(centerInMilliRad, self._tt.getTargetPosition()))
+
+
+    def testGetRecordedDataTimeStep(self):
+        ts= self._tt.getRecordedDataTimeStep()
+        self.assertEqual(40e-6, ts)
+
+
+    def testSetOpenLoopValue(self):
+        self._tt.stopModulation()
+        self._tt.disableControlLoop()
+        self._tt.setOpenLoopValue([50, 60])
+        self.assertTrue(
+            np.allclose([50, 60], self._tt.getOpenLoopValue()))
+
+
+    def testSetOpenLoopValueRaisesIfInClosedLoop(self):
+        self._tt.stopModulation()
+        self._tt.enableControlLoop()
+        self.assertRaises(PIException, self._tt.setOpenLoopValue, [50, 60])
+
+
 
 if __name__ == "__main__":
     unittest.main()

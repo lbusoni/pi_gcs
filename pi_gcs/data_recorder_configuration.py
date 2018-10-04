@@ -57,4 +57,4 @@ class DataRecorderConfiguration(object):
 
 
     def getTableIds(self):
-        return self._table.keys()
+        return list(self._table.keys())

@@ -1,6 +1,8 @@
 import numpy as np
 from pi_gcs.abstract_gcs2 import AbstractGeneralCommandSet
-from pi_gcs.gcs2 import WaveformGenerator
+from pi_gcs.gcs2 import WaveformGenerator, PIException
+from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
+    RecordOption
 
 
 __version__= "$Id: $"
@@ -23,6 +25,7 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         self._wtr= np.ones(3)
         self.triggerStartRecordingInSyncWithWaveGenerator= 0
         self._waveform= {}
+        self._dataRecorderConfig= self._defaultDataRecorderConfiguration()
 
 
     def _dictToArray(self, dicto, keys):
@@ -141,6 +144,8 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
 
 
     def setOpenLoopAxisValue(self, axesString, amplitudeInVolt):
+        if np.any(self.getServoControlMode(axesString)):
+            raise PIException("Open-loop motion attempted when servo ON (303)")
         axes= [x.strip() for x in axesString.split(' ')]
         self._arrayToDict(self._openLoopAxisValue, axes, amplitudeInVolt)
 
@@ -177,17 +182,36 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
 
 
     def setDataRecorderConfiguration(self, dataRecorderConfiguration):
-        pass
+        self._dataRecorderConfig= dataRecorderConfiguration
 
 
     def getDataRecorderConfiguration(self):
-        pass
+        return self._dataRecorderConfig
+
+
+    def _defaultDataRecorderConfiguration(self):
+        dataRecorderCfg= DataRecorderConfiguration()
+        dataRecorderCfg.setTable(1, "A", RecordOption.REAL_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(2, "B", RecordOption.REAL_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(3, "A", RecordOption.POSITION_ERROR_OF_AXIS)
+        dataRecorderCfg.setTable(4, "B", RecordOption.POSITION_ERROR_OF_AXIS)
+        dataRecorderCfg.setTable(5, "A", RecordOption.TARGET_POSITION_OF_AXIS)
+        dataRecorderCfg.setTable(6, "B", RecordOption.TARGET_POSITION_OF_AXIS)
+        return dataRecorderCfg
+
+
+    def _repeatVectorTo(self, vector, nPoints):
+        return np.tile(vector, nPoints // len(vector) + 1)[0: nPoints]
 
 
     def getRecordedDataValues(self, howManyPoints, startFromPoint=1):
         nRecorders= self.getNumberOfRecorderTables()
-        return np.arange(howManyPoints * nRecorders).\
-            reshape((nRecorders, howManyPoints))
+        retArray=np.zeros((nRecorders, howManyPoints))
+        retArray[0]= self._repeatVectorTo(self._waveform[1], howManyPoints)
+        retArray[1]= self._repeatVectorTo(self._waveform[2], howManyPoints)
+        retArray[4]= self._repeatVectorTo(self._waveform[1], howManyPoints)
+        retArray[5]= self._repeatVectorTo(self._waveform[2], howManyPoints)
+        return retArray
 
 
     def startRecordingInSyncWithWaveGenerator(self):
@@ -244,7 +268,9 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
         assert startPoint >= 0
         assert startPoint < lengthInPoints
         assert curveCenterPoint >= 0
-        assert startPoint + curveCenterPoint < lengthInPoints
+        assert startPoint + curveCenterPoint < lengthInPoints, \
+            'startPoint + curveCenterPoint >= lenghtInPoints (%d+%d>=%d)' % (
+                startPoint, curveCenterPoint, lengthInPoints)
 
         ccUp= 0.5* curveCenterPoint
         rampUp= 0.5 * amplitudeOfTheSineCurve* (1 + np.sin(
@@ -258,6 +284,16 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
             offsetOfTheSineCurve + rampDown
         waveform= np.roll(waveform, startPoint)
         self._waveform[waveTableId]= waveform
+
+
+    def setUserDefinedWaveform(self,
+                               waveTableId,
+                               offsetOfFirstPointInWaveTable,
+                               numberOfWavePoints,
+                               appendMode,
+                               wavePointsArray):
+        assert appendMode == WaveformGenerator.CLEAR, 'only CLEAR implemented'
+        self._waveform[waveTableId]= wavePointsArray
 
 
     def getWaveform(self, waveTableId):
@@ -294,5 +330,13 @@ class FakeGeneralCommandSet(AbstractGeneralCommandSet):
 
 
     def getDataRecorderTriggerSource(self):
+        pass
+
+
+    def startStepAndResponseMeasurement(self, axisString, amplitude):
+        pass
+
+
+    def startImpulseAndResponseMeasurement(self, axisString, amplitude):
         pass
 

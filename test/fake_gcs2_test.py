@@ -65,11 +65,11 @@ class FakeGeneralCommandSetTest(unittest.TestCase):
             waveform[startPoint+ curveCenterPoint])
         self.assertEqual(
             offsetOfTheSineCurve + 0.5* amplitudeOfTheSineCurve,
-            waveform[startPoint+ 0.5* curveCenterPoint])
+            waveform[int(startPoint+ 0.5* curveCenterPoint)])
         self.assertEqual(
             offsetOfTheSineCurve + 0.5* amplitudeOfTheSineCurve,
-            waveform[startPoint+ 0.5*
-                     (curveCenterPoint + wavelengthOfTheSineCurveInPoints)])
+            waveform[int(startPoint+ 0.5*
+                     (curveCenterPoint + wavelengthOfTheSineCurveInPoints))])
 
 
     def testTargetPosition(self):
@@ -79,6 +79,23 @@ class FakeGeneralCommandSetTest(unittest.TestCase):
         self.assertEqual(34, self._ctrl.getTargetPosition('F'))
         self.assertTrue(np.allclose(target,
                                     self._ctrl.getTargetPosition('P F')))
+
+
+
+    def testUserDefinedWaveform(self):
+        waveTableId= 1
+        numberOfWavePoints= 102
+        appendMode= WaveformGenerator.CLEAR
+        wavePointsArray= np.linspace(40, 50, numberOfWavePoints)
+        self._ctrl.setUserDefinedWaveform(waveTableId,
+                                          1,
+                                          numberOfWavePoints, appendMode,
+                                          wavePointsArray)
+
+        waveform= self._ctrl.getWaveform(waveTableId)
+        self.assertEqual(numberOfWavePoints, len(waveform))
+        self.assertEqual(40, waveform[0])
+        self.assertEqual(50, waveform[-1])
 
 
 if __name__ == "__main__":

@@ -1,12 +1,13 @@
 import numpy as np
-from pi_gcs.gcs2 import WaveformGenerator, PIException
+from pi_gcs.gcs2 import WaveformGenerator
 from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
     RecordOption
+from pi_gcs.abstract_tip_tilt_2_axes import AbstractTipTilt2Axis
 
 __version__= "$Id: $"
 
 
-class TipTilt2Axis(object):
+class TipTilt2Axis(AbstractTipTilt2Axis):
 
     AXIS_A= "A"
     AXIS_B= "B"
@@ -19,10 +20,11 @@ class TipTilt2Axis(object):
 
         self._origTargetPosition= None
         self._modulationEnabled= False
+        self._recordedDataTimeStep= None
 
 
 
-    def setUp(self):
+    def setUp(self, enableControlLoop=True):
         self._connectController()
         self._checkNumberOfChannels()
         self._enableRemoteControlMode()
@@ -30,7 +32,8 @@ class TipTilt2Axis(object):
         self._setVoltageLimits()
         self.disableControlLoop()
         self._configure3rdAxisAsPivot()
-        self.enableControlLoop()
+        if enableControlLoop:
+            self.enableControlLoop()
 
 
     def _connectController(self):
@@ -132,41 +135,83 @@ class TipTilt2Axis(object):
         return self._ctrl.getVoltages(self.ALL_CHANNELS)
 
 
-    def startModulation(self,
-                        radiusInMilliRad,
-                        frequencyInHz,
-                        centerInMilliRad):
+    def startSinusoidalModulation(self,
+                                  radiusInMilliRad,
+                                  frequencyInHz,
+                                  phasesInRadians,
+                                  centerInMilliRad):
         self._origTargetPosition= centerInMilliRad
         self.stopModulation()
 
-        periodInSec= 1./ frequencyInHz
         assert np.ptp(self._ctrl.getWaveGeneratorTableRate()) == 0, \
             "wave generator table rate must be the same for every table"
         wgtr= self._ctrl.getWaveGeneratorTableRate()[0]
         timestep= self._ctrl.getServoUpdateTimeInSeconds() * wgtr
 
-        lengthInPoints= periodInSec/ timestep
-        peakOfTheSineCurve= self._milliRadToGcsUnits(
-            self.getTargetPosition() + radiusInMilliRad)
-        offsetOfTheSineCurve= self._milliRadToGcsUnits(
-            self.getTargetPosition() - radiusInMilliRad)
-        amplitudeOfTheSineCurve= peakOfTheSineCurve - offsetOfTheSineCurve
-        wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
-        startPoint= np.array([0, 0.25])* wavelengthOfTheSineCurveInPoints
-        curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
+#         periodInSec= 1./ frequencyInHz
+#         lengthInPoints= periodInSec/ timestep
+#         peakOfTheSineCurve= self._milliRadToGcsUnits(
+#             self.getTargetPosition() + radiusInMilliRad)
+#         offsetOfTheSineCurve= self._milliRadToGcsUnits(
+#             self.getTargetPosition() - radiusInMilliRad)
+#         amplitudeOfTheSineCurve= peakOfTheSineCurve - offsetOfTheSineCurve
+#         wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
+#         startPoint= np.array([0, 0.25])* wavelengthOfTheSineCurveInPoints
+#         curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
 
         self._ctrl.clearWaveTableData([1, 2, 3])
-        self._ctrl.setSinusoidalWaveform(
-            1, WaveformGenerator.CLEAR, lengthInPoints,
-            amplitudeOfTheSineCurve[0], offsetOfTheSineCurve[0],
-            wavelengthOfTheSineCurveInPoints, startPoint[0], curveCenterPoint)
-        self._ctrl.setSinusoidalWaveform(
-            2, WaveformGenerator.CLEAR, lengthInPoints,
-            amplitudeOfTheSineCurve[1], offsetOfTheSineCurve[1],
-            wavelengthOfTheSineCurveInPoints, startPoint[1], curveCenterPoint)
+        self._setSinusoidalWaveform(1, timestep, radiusInMilliRad[0],
+                                    frequencyInHz, phasesInRadians[0],
+                                    centerInMilliRad[0])
+        self._setSinusoidalWaveform(2, timestep, radiusInMilliRad[1],
+                                    frequencyInHz, phasesInRadians[1],
+                                    centerInMilliRad[1])
+#         self._ctrl.setSinusoidalWaveform(
+#             1, WaveformGenerator.CLEAR, lengthInPoints,
+#             amplitudeOfTheSineCurve[0], offsetOfTheSineCurve[0],
+#             wavelengthOfTheSineCurveInPoints, startPoint[0], curveCenterPoint)
+#         self._ctrl.setSinusoidalWaveform(
+#             2, WaveformGenerator.CLEAR, lengthInPoints,
+#             amplitudeOfTheSineCurve[1], offsetOfTheSineCurve[1],
+#             wavelengthOfTheSineCurveInPoints, startPoint[1], curveCenterPoint)
         self._ctrl.setConnectionOfWaveTableToWaveGenerator([1, 2], [1, 2])
         self._ctrl.setWaveGeneratorStartStopMode([1, 1, 0])
         self._modulationEnabled= True
+
+
+    def _getAxisFromWaveTableId(self, waveTableId):
+        if waveTableId == 1:
+            return self.AXIS_A
+        elif waveTableId == 2:
+            return self.AXIS_B
+        else:
+            raise ValueError("Unknown waveTableId %d" % waveTableId)
+
+
+    def _setSinusoidalWaveform(self, waveTableId, timeStepInSec,
+                               amplitudeInMilliRad, frequencyInHz,
+                               phaseInRadians, offsetInMilliRad):
+        axisName= self._getAxisFromWaveTableId(waveTableId)
+        periodInSec= 1./ frequencyInHz
+        wgtr= self._ctrl.getWaveGeneratorTableRate()[0]
+        timestep= self._ctrl.getServoUpdateTimeInSeconds() * wgtr
+
+        lengthInPoints= periodInSec/ timestep
+        peakOfTheSineCurve= self._milliRadToGcsUnitsOneAxis(
+            offsetInMilliRad + amplitudeInMilliRad, axisName)
+        valleyOfTheSineCurve= self._milliRadToGcsUnitsOneAxis(
+            offsetInMilliRad - amplitudeInMilliRad, axisName)
+        amplitudeOfTheSineCurve= peakOfTheSineCurve - valleyOfTheSineCurve
+        wavelengthOfTheSineCurveInPoints= periodInSec/ timestep
+        startPoint= phaseInRadians/ (2* np.pi) * \
+            wavelengthOfTheSineCurveInPoints
+        curveCenterPoint= 0.5* wavelengthOfTheSineCurveInPoints
+        self._ctrl.setSinusoidalWaveform(
+            waveTableId, WaveformGenerator.CLEAR, lengthInPoints,
+            amplitudeOfTheSineCurve, valleyOfTheSineCurve,
+            wavelengthOfTheSineCurveInPoints, startPoint, curveCenterPoint)
+
+
 
 
     def stopModulation(self):
@@ -201,14 +246,44 @@ class TipTilt2Axis(object):
         return self._ctrl.getDataRecorderConfiguration()
 
 
+    def _convertRecordedDataToMilliRad(self, recData):
+        ret= recData.copy()
+        recordOptionsToConvert= [RecordOption.TARGET_POSITION_OF_AXIS,
+                                 RecordOption.POSITION_ERROR_OF_AXIS,
+                                 RecordOption.REAL_POSITION_OF_AXIS]
+        cfg= self.getDataRecorderConfiguration()
+        ids= cfg.getTableIds()
+        for i in np.arange(len(ids)):
+            source= cfg.getRecordSource(ids[i])
+            option= cfg.getRecordOption(ids[i])
+            if option in recordOptionsToConvert:
+                ret[i]= self._gcsUnitsToMilliRadOneAxis(ret[i], source)
+        return ret
+
+
     def getRecordedData(self, howManyPoints, dataRecorderCfg=None):
+        self._startDataRecorder(dataRecorderCfg)
+        return self._retrieveRecordedData(howManyPoints)
+
+
+    def _startDataRecorder(self, dataRecorderCfg=None):
         self._configureDataRecoders(dataRecorderCfg)
         self._ctrl.startRecordingInSyncWithWaveGenerator()
-        timestep= self._ctrl.getServoUpdateTimeInSeconds()
-        rtr= self._ctrl.getRecordTableRate()
-        timeValues= np.arange(howManyPoints) * timestep * rtr
-        recData= self._ctrl.getRecordedDataValues(howManyPoints, 1)
-        return np.vstack((timeValues, recData))
+
+
+    def getRecordedDataTimeStep(self):
+        if self._recordedDataTimeStep is None:
+            timestep= self._ctrl.getServoUpdateTimeInSeconds()
+            rtr= self._ctrl.getRecordTableRate()
+            self._recordedDataTimeStep= timestep * rtr
+        return self._recordedDataTimeStep
+
+
+    def _retrieveRecordedData(self, howManyPoints):
+        timeValues= np.arange(howManyPoints) * self.getRecordedDataTimeStep()
+        recDataGcs= self._ctrl.getRecordedDataValues(howManyPoints, 1)
+        recDataMilliRad= self._convertRecordedDataToMilliRad(recDataGcs)
+        return np.vstack((timeValues, recDataMilliRad))
 
 
     def status(self):
@@ -219,3 +294,38 @@ class TipTilt2Axis(object):
         status['CONTROL_LOOP_CLOSED']= self.isControlLoopEnabled()
         status['OVERFLOW']= self._ctrl.getOverflowState(self.ALL_AXES)
         return status
+
+
+    def _setUserDefinedWaveform(self, tableId, axisTrajectoryInMilliRad):
+        axisName= self._getAxisFromWaveTableId(tableId)
+        self._ctrl.setUserDefinedWaveform(
+            tableId,
+            1,
+            len(axisTrajectoryInMilliRad),
+            WaveformGenerator.CLEAR,
+            self._milliRadToGcsUnitsOneAxis(
+                axisTrajectoryInMilliRad,
+                axisName))
+
+
+    def startFreeformModulation(self, axisATrajectory, axisBTrajectory):
+        self.stopModulation()
+
+        assert np.ptp(self._ctrl.getWaveGeneratorTableRate()) == 0, \
+            "wave generator table rate must be the same for every table"
+
+        self._ctrl.clearWaveTableData([1, 2, 3])
+        self._setUserDefinedWaveform(1, axisATrajectory)
+        self._setUserDefinedWaveform(2, axisBTrajectory)
+        self._ctrl.setConnectionOfWaveTableToWaveGenerator([1, 2], [1, 2])
+        self._ctrl.setWaveGeneratorStartStopMode([1, 1, 0])
+        self._modulationEnabled= True
+
+
+    def setOpenLoopValue(self, openLoopValue):
+        return self._ctrl.setOpenLoopAxisValue(
+            self.ALL_AXES, openLoopValue)
+
+
+    def getOpenLoopValue(self):
+        return self._ctrl.getOpenLoopAxisValue(self.ALL_AXES)

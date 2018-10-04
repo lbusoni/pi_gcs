@@ -3,7 +3,7 @@
 import unittest
 import numpy as np
 import time
-from pi_gcs.gcs2 import GeneralCommandSet2, ConnectionError, CHANNEL_ONLINE,\
+from pi_gcs.gcs2 import GeneralCommandSet2, PIConnectionError, CHANNEL_ONLINE,\
     CHANNEL_OFFLINE, PIException, WaveformGenerator
 import ctypes
 from ctypes.util import find_library
@@ -40,12 +40,12 @@ class CTypesTest(unittest.TestCase):
 
 
     def testEasy(self):
-        self.assertEqual(12345, self.libc.atoi("12345"))
+        self.assertEqual(12345, self.libc.atoi(b"12345"))
 
 
     def testReturnDouble(self):
         self.libc.atof.restype= ctypes.c_double
-        self.assertEqual(12345.67, self.libc.atof("12345.67"))
+        self.assertEqual(12345.67, self.libc.atof(b"12345.67"))
 
 
     def testPassingIntPerReference(self):
@@ -113,8 +113,8 @@ class CTypesTest(unittest.TestCase):
     def testArgsConstCharPtrResCharPtr(self):
         self.libc.strchr.restype= ctypes.c_char_p
         self.libc.strchr.argtypes= [ctypes.c_char_p, ctypes.c_int]
-        res= self.libc.strchr("hello, world", ord('l'))
-        self.assertEqual("llo, world", res)
+        res= self.libc.strchr(b"hello, world", ord('l'))
+        self.assertEqual(b"llo, world", res)
 
 
     def testUseArgTypes(self):
@@ -123,6 +123,7 @@ class CTypesTest(unittest.TestCase):
         self.assertEqual(3, self.libm.floor(3.3))
 
 
+@unittest.skip('need real hw')
 class GeneralCommandSet2TestWithE517(unittest.TestCase):
 
     def setUp(self):
@@ -148,7 +149,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
 
     def _testRaisesIfItCantConnect(self):
         fake= GeneralCommandSet2()
-        self.assertRaises(ConnectionError,
+        self.assertRaises(PIConnectionError,
                           fake.connectTCPIP, 'foo.bar.com')
 
 
@@ -339,6 +340,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
         self._resetE517ToSafe()
 
 
+    @unittest.skip("skipped")
     def testRecorder(self):
         self._resetE517ToSafe()
         print("%s" % self._gcs.getAllDataRecorderOptions())
@@ -374,6 +376,7 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
         self._resetE517ToSafe()
 
 
+    @unittest.skip("skipped")
     def testWaveGenerator(self):
         self._resetE517ToSafe()
         self.assertEqual(3, self._gcs.getNumberOfWaveGenerators())
@@ -400,6 +403,36 @@ class GeneralCommandSet2TestWithE517(unittest.TestCase):
             1, WaveformGenerator.CLEAR, lengthInPoints,
             amplitudeOfTheSineCurve, offsetOfTheSineCurve,
             wavelengthOfTheSineCurveInPoints, startPoint, curveCenterPoint)
+        self._gcs.setConnectionOfWaveTableToWaveGenerator([1, 2, 3], [1, 2, 3])
+
+        self._gcs.setWaveGeneratorStartStopMode([1, 0, 0])
+        res= self._gcs.getWaveGeneratorStartStopMode()
+        self.assertEqual(1, res[0])
+        self.assertEqual(0, res[1])
+        self.assertEqual(0, res[2])
+
+        self._gcs.setWaveGeneratorStartStopMode([0, 0, 0])
+        self._gcs.clearWaveTableData([1, 2, 3])
+        self._resetE517ToSafe()
+
+
+
+    def testUserDefinedWaveGenerator(self):
+        self._resetE517ToSafe()
+        self.assertEqual(3, self._gcs.getNumberOfWaveGenerators())
+
+        self._gcs.setWaveGeneratorStartStopMode([0, 0, 0])
+        res= self._gcs.getWaveGeneratorStartStopMode()
+        self.assertEqual(0, res[0])
+        self.assertEqual(0, res[1])
+        self.assertEqual(0, res[2])
+
+        lengthInPoints= 250
+        wavePointsArray= np.arange(40, 50, (50- 40)/lengthInPoints)
+        self._gcs.setUserDefinedWaveform(
+            1, 1, lengthInPoints, WaveformGenerator.CLEAR,
+            wavePointsArray)
+
         self._gcs.setConnectionOfWaveTableToWaveGenerator([1, 2, 3], [1, 2, 3])
 
         self._gcs.setWaveGeneratorStartStopMode([1, 0, 0])

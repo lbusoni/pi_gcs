@@ -2,8 +2,7 @@ from ctypes.util import find_library
 import ctypes
 from ctypes import c_int, c_bool, c_char, c_char_p, c_double, c_uint
 import numpy as np
-from pi_gcs.data_recorder_configuration import DataRecorderConfiguration,\
-    RecordOption
+from pi_gcs.data_recorder_configuration import DataRecorderConfiguration
 from pi_gcs.abstract_gcs2 import AbstractGeneralCommandSet
 
 
@@ -17,7 +16,7 @@ class PIException(Exception):
     pass
 
 
-class ConnectionError(PIException):
+class PIConnectionError(PIException):
     pass
 
 
@@ -89,7 +88,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         self._port= None
         self._lib= None
         self._id= None
-        self._axes= ctypes.c_char_p("A B C")
+        self._axes= ctypes.c_char_p(b"A B C")
         self._channels= (ctypes.c_int * 3)(1, 2, 3)
 
         self._importLibrary()
@@ -105,13 +104,13 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
 
     def _errAsString(self, errorCode):
         bufSize= 256
-        s=ctypes.create_string_buffer('\000' * bufSize)
+        s=ctypes.create_string_buffer(b'\000' * bufSize)
 
         ret= self._lib.PI_TranslateError(
             errorCode, s, bufSize)
         if ret != 1:
             return "Unknown error (%d)" % errorCode
-        return "%s (%d)" % (s.value, errorCode)
+        return "%s (%d)" % (s.value.decode(), errorCode)
 
 
     def _convertErrorToException(self, returnValue, expectedReturn=GCS_TRUE):
@@ -162,7 +161,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         value= valueArrayClass([0]* nCh)
         gcsFunction.argtypes= [c_int, c_char_p, valueArrayClass]
         self._convertErrorToException(
-            gcsFunction(self._id, axesString, value))
+            gcsFunction(self._id, axesString.encode(), value))
         return value.toNumpyArray()
 
 
@@ -172,14 +171,15 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         assert nCh == len(valueArray)
         gcsFunction.argtypes= [c_int, c_char_p, valueArrayClass]
         self._convertErrorToException(
-            gcsFunction(self._id, axesString, valueArrayClass(valueArray)))
+            gcsFunction(self._id, axesString.encode(),
+                        valueArrayClass(valueArray)))
 
 
     def _getterReturnString(self, gcsFunction, bufSize):
-        s=ctypes.create_string_buffer('\000', bufSize)
+        s=ctypes.create_string_buffer(b'\000', bufSize)
         self._convertErrorToException(
             gcsFunction(self._id, s, bufSize))
-        return s.value
+        return s.value.decode()
 
 
     def _isConnected(self):
@@ -187,10 +187,10 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
 
 
     def connectTCPIP(self, hostname, port=50000):
-        ide= self._lib.PI_ConnectTCPIP(hostname, port)
+        ide= self._lib.PI_ConnectTCPIP(hostname.encode(), port)
         if ide == -1:
             errorId= self._lib.PI_GetError(ide)
-            raise ConnectionError("%s" % self._errAsString(errorId))
+            raise PIConnectionError("%s" % self._errAsString(errorId))
         self._id= ide
         self._hostname= hostname
         self._port= port
@@ -213,17 +213,17 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         self._lib.PI_GcsCommandset.argtypes= [c_int, c_char_p]
         self._lib.PI_GcsGetAnswer.argtypes= [c_int, c_char_p, c_int]
         self._convertErrorToException(
-            self._lib.PI_GcsCommandset(self._id, commandAsString))
+            self._lib.PI_GcsCommandset(self._id, commandAsString.encode()))
         self._trickToCheckForSyntaxError()
         retSize= c_int()
         res= ''
         self._convertErrorToException(
             self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
         while retSize.value != 0:
-            buf= ctypes.create_string_buffer('\000', retSize.value)
+            buf= ctypes.create_string_buffer(b'\000', retSize.value)
             self._convertErrorToException(
                 self._lib.PI_GcsGetAnswer(self._id, buf, retSize.value))
-            res+= buf.value
+            res+= buf.value.decode()
             self._convertErrorToException(
                 self._lib.PI_GcsGetAnswerSize(self._id, ctypes.byref(retSize)))
         return res
@@ -289,7 +289,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         cRet= ctypes.create_string_buffer(0, ctypes.sizeof(cMsg))
         self._convertErrorToException(
             self._lib.PI_qECO(self._id, cMsg, cRet))
-        return cRet.value
+        return cRet.value.decode()
 
 
     def getLowerVoltageLimit(self, channels):
@@ -357,11 +357,12 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
                                      c_int]
         retValue= CDoubleArray([0.])
         bufSize= 256
-        retString= ctypes.create_string_buffer('\000', bufSize)
+        retString= ctypes.create_string_buffer(b'\000', bufSize)
 
         self._convertErrorToException(
             self._lib.PI_qSPA(
-                self._id, str(itemId),
+                self._id,
+                str(itemId).encode(),
                 CUnsignedIntArray([parameterId]),
                 retValue,
                 retString,
@@ -391,14 +392,14 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
             self._convertErrorToException(
                 self._lib.PI_DRC(self._id,
                                  CIntArray([tableId]),
-                                 source,
+                                 source.encode(),
                                  CIntArray([option])))
 
 
     def getDataRecorderConfiguration(self):
         nRecorders= self.getNumberOfRecorderTables()
         sourceBufSize= 256
-        source= ctypes.create_string_buffer('\000', sourceBufSize)
+        source= ctypes.create_string_buffer(b'\000', sourceBufSize)
         option= CIntArray(np.zeros(nRecorders, dtype=np.int32))
         table=CIntArray(np.arange(1, nRecorders + 1))
 
@@ -409,7 +410,7 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
             self._lib.PI_qDRC(self._id, table, source,
                               option, sourceBufSize, nRecorders))
 
-        sources= [x.strip() for x in source.value.split('\n')]
+        sources= [x.strip() for x in source.value.decode().split('\n')]
         cfg= DataRecorderConfiguration()
         for i in range(nRecorders):
             cfg.setTable(table.toNumpyArray()[i],
@@ -527,6 +528,26 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
                                    int(lengthInPoints)))
 
 
+    def setUserDefinedWaveform(self,
+                               waveTableId,
+                               offsetOfFirstPointInWaveTable,
+                               numberOfWavePoints,
+                               appendMode,
+                               wavePointsArray):
+        '''
+        See description of PI_WAV_PNT in PI GCS 2.0 DLL doc
+        '''
+        assert appendMode in WaveformGenerator.ALL
+        self._lib.PI_WAV_PNT.argtypes= [c_int, c_int, c_int, c_int, c_int,
+                                        CDoubleArray]
+        self._convertErrorToException(
+            self._lib.PI_WAV_PNT(self._id,
+                                 int(waveTableId),
+                                 int(offsetOfFirstPointInWaveTable),
+                                 int(numberOfWavePoints),
+                                 int(appendMode),
+                                 CDoubleArray(wavePointsArray)))
+
 
     def setRecordTableRate(self, recordTableRateInServoLoopCycles=1):
         self._lib.PI_RTR.argtypes= [c_int, c_int]
@@ -538,13 +559,11 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
         rtr= c_int()
         self._convertErrorToException(
             self._lib.PI_qRTR(self._id, ctypes.byref(rtr)))
-        return rtr
+        return rtr.value
 
 
     def getServoUpdateTimeInSeconds(self):
-        return self.getVolatileMemoryParameters(1, 0x0E000200)
-
-
+        return float(self.getVolatileMemoryParameters(1, 0x0E000200))
 
 
     def setWaveGeneratorTableRate(self,
@@ -592,3 +611,23 @@ class GeneralCommandSet2(AbstractGeneralCommandSet):
 
     def getDataRecorderTriggerSource(self):
         pass
+
+
+
+    def startStepAndResponseMeasurement(self, axisString, amplitude):
+        self._lib.PI_STE.argtypes= [c_int, c_char_p, c_double]
+
+        self._convertErrorToException(
+            self._lib.PI_STE(self._id,
+                             axisString.encode(),
+                             amplitude))
+
+
+    def startImpulseAndResponseMeasurement(self, axisString, amplitude):
+        self._lib.PI_IMP.argtypes= [c_int, c_char_p, c_double]
+
+        self._convertErrorToException(
+            self._lib.PI_IMP(self._id,
+                             axisString.encode(),
+                             amplitude))
+

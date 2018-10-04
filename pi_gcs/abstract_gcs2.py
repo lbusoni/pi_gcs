@@ -1,14 +1,12 @@
 import abc
+from six import with_metaclass
 
 
 __version__= "$Id: $"
 
 
 
-class AbstractGeneralCommandSet(object):
-    __metaclass__= abc.ABCMeta
-
-
+class AbstractGeneralCommandSet(with_metaclass(abc.ABCMeta, object)):
     @abc.abstractmethod
     def connectTCPIP(self, hostname, port=50000):
         assert False
@@ -218,6 +216,15 @@ class AbstractGeneralCommandSet(object):
         assert False
 
 
+    @abc.abstractmethod
+    def setUserDefinedWaveform(self,
+                               waveTableId,
+                               offsetOfFirstPointInWaveTable,
+                               numberOfWavePoints,
+                               appendMode,
+                               wavePointsArray):
+        assert False
+
 
     @abc.abstractmethod
     def setRecordTableRate(self, recordTableRateInServoLoopCycles=1):
@@ -258,6 +265,16 @@ class AbstractGeneralCommandSet(object):
 
     @abc.abstractmethod
     def getDataRecorderTriggerSource(self):
+        assert False
+
+
+    @abc.abstractmethod
+    def startStepAndResponseMeasurement(self, axisString, amplitude):
+        assert False
+
+
+    @abc.abstractmethod
+    def startImpulseAndResponseMeasurement(self, axisString, amplitude):
         assert False
 
 
